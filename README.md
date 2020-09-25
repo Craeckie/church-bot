@@ -1,6 +1,14 @@
 # Church-Bot
 This is Bot for ChurchTools written in Python. It uses redis for caching and directly accesses the [ChurchTools-API](https://feg-karlsruhe.church.tools/api).
 
+Currently the following functions are implemented:
+- :bust_in_silhouette: Information about **people**, search using name/phone number
+- :church: Information about current **room reservations**
+- :calendar: Information about current **calendar entries**
+- :musical_note: Search for **songs**
+- :busts_in_silhouette: Information about **groups**
+- :birthday: Show current birthdays
+
 # Getting Started
 1. Install and start [redis](https://redis.io/)
 2. Install the requirements (preferably in a [virtualenv](https://virtualenv.pypa.io)): `pip3 install -r requirements.txt`
