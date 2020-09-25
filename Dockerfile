@@ -6,7 +6,6 @@ RUN apt update && apt upgrade -y && apt install -y --no-install-recommends local
     pip install --upgrade pip \
     && apt-get clean && rm -rf /var/lib/apt/* /var/cache/apt/*
 
-# COPY run.sh /root/
 ADD ./ /churchbot
 WORKDIR /churchbot
 
