@@ -1,6 +1,8 @@
 # Church-Bot
 This is a bot for ChurchTools written in Python. It uses redis for caching and directly accesses the [ChurchTools-API](https://feg-karlsruhe.church.tools/api).
 
+[Try it out on Telegram!](https://t.me/fegka_bot)
+
 # Features
 - :bust_in_silhouette: Information about **people**, search using name/phone number
 - :church: Information about current **room reservations**
