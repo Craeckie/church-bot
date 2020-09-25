@@ -1,5 +1,5 @@
 # Church-Bot
-This is a bot for ChurchTools written in Python. It uses redis for caching and directly accesses the [ChurchTools-API](https://feg-karlsruhe.church.tools/api).
+This is a bot for [ChurchTools](https://www.church.tools/en/home) written in Python. It uses redis for caching and directly accesses the [ChurchTools-API](https://feg-karlsruhe.church.tools/api).
 
 [Try it out on Telegram!](https://t.me/fegka_bot)
 
@@ -28,3 +28,8 @@ The ChurchTools-API is currently undergoing major changes. Some functions are st
 The code is not particularly readable or documented. Especially the entry function is quite a mess. This could be restructured to a more Object Oriented style using base and derived classes. An example for this is the implementation of bookings and calendar. Because they share several functions these are provided in a base class.
 
 Feel free to open issues and pull requests are welcome!
+
+# Disclaimer
+This bot is an unoffical project and in no way related to the ChurchTools Innovations GmbH. By using this bot you agress to the terms & conditions of ChurchTools at https://www.church.tools/en/agb. By connecting it to a specific installation you also agree to the terms & conditions and to the privacy policy of the owner of that installation.
+
+The code is licensed under the Mozilla Public License 2.0. Please see LICENSE for more informtion.
