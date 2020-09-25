@@ -10,10 +10,10 @@ ADD ./ /churchbot
 WORKDIR /churchbot
 
 RUN python3 -m venv ./env && \
-    . /opt/venv/bin/activate && \
+    . ./env/bin/activate && \
     pip install -r requirements.txt && \
-    chown -R ww-data:www-data ./
+    chown -R www-data:www-data ./
 
 USER www-data
 
-CMD ". /opt/venv/bin/activate && exec python -m churchbot"
+CMD . ./env/bin/activate && exec python -m churchbot
