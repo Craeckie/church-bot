@@ -17,3 +17,12 @@ This is a bot for ChurchTools written in Python. It uses redis for caching and d
 5. Set the environment variable (e.g. using `export`) `BOT_TOKEN=..`
 6. Start the bot: `python3 churchbot.py`
 7. Talk to your bot on Telegram
+
+# Developer Information
+This bot uses [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot).
+
+The ChurchTools-API is currently undergoing major changes. Some functions are still only available via the old `?q=church{module}/ajax` format, e.g. `?q=churchdb/ajax`. These rather poorly documented and often require tracking the Ajax calls and guessing the meaning of the parameters. Other functions use the new `api/` and are documented in the official [reference](https://feg-karlsruhe.church.tools/api).
+
+The code is not particularly readable or documented. Especially the entry function is quite a mess. This could be restructured to a more Object Oriented style using base and derived classes. An example for this is the implementation of bookings and calendar. Because they share several functions these are provided in a base class.
+
+Feel free to open issues and pull requests are welcome!
