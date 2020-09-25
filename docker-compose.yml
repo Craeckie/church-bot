@@ -1,0 +1,19 @@
+version: '2.4'
+services:
+  bot:
+    build: https://github.com/Craeckie/church-bot.git
+    environment:
+      BOT_TOKEN: "YOUR TOKEN"
+      TZ: "Europe/Berlin"
+      REDIS_HOST: "redis"
+
+    restart: unless-stopped
+
+    mem_limit: 192M
+
+  redis:
+    image: redis
+    volumes:
+      - ./redis-data:/data
+
+    mem_limit: 256M
