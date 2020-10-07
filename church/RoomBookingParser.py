@@ -37,7 +37,7 @@ class RoomBookingParser(BookingParser):
     def getAllBookings(self):
         key = get_cache_key(self.login_data, self.cache_key, useDate=True)
         entries = self._loadCache(key)
-        if not entries or True: # ToDo: re-enable caching
+        if not entries:
             entries = []
             (error, data) = self._ajaxResponse()
             if not data:

@@ -27,7 +27,7 @@ class BookingParser:
         logger.debug(key)
         entries = self._loadCache(key)
         error = None
-        if entries is None or True: # ToDo: re-enable caching
+        if entries is None:
             (error, bookings) = self.getAllBookings()
             #logger.debug(bookings)
             if not bookings:
@@ -53,7 +53,7 @@ class BookingParser:
         text = text.lower()
         key = get_cache_key(self.login_data, self.cache_key + ':search', text)
         entry_data = self._loadCache(key)
-        if entry_data is None or True: # ToDo: re-enable caching
+        if entry_data is None:
             entries = []
             error, bookings = self.getEntries(dayRange=365)
             # (error, data) = self._ajaxResponse()
