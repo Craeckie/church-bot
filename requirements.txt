@@ -3,5 +3,6 @@ redis~=3.5.3
 pyzbar~=0.1.8
 python-dateutil~=2.8.1
 requests~=2.24.0
-phonenumbers~=8.12.9
+phonenumbers~=8.12.10
 vobject~=0.9.6.1
+urllib3~=1.25.10
