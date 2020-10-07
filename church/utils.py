@@ -55,14 +55,26 @@ def login(redis, login_data=None, updateCache=False, login_token=False):
     key = get_cache_key(login_data, 'login_cookies', usePerson=True)
     cookies_pickle = redis.get(key)
     cookies = pickle.loads(cookies_pickle) if cookies_pickle else None
-    if not cookies or updateCache:
+
+    # Check if session cookie still valid
+    if cookies and not updateCache:
+        data = cc_func('resource', 'pollForNews', cookies, login_data=login_data)
+        if not data or 'data' not in data:
+            cookies = None
+        else:
+            data = data['data']
+            userid = data['userid']
+            if not userid or userid == -1:
+                cookies = None
+
+    if not cookies or updateCache: # need to login using permanent login key
         logger.info(f"Cookie is invalid for {login_data['personid']}")
         key_token = get_cache_key(login_data, 'login_token', usePerson=True)
         login_key_pickle = redis.get(key_token)
         login_key = pickle.loads(login_key_pickle) if login_key_pickle else None
         resp1 = requests.head(login_data['url'])
         cookies = resp1.cookies
-        if not login_key or login_token:
+        if not login_key or login_token: # login key not valid, try login token
             logger.info(f"Getting new login token for {login_data['personid']}")
             login_url = urljoin(login_data['url'], f"?q=profile&loginstr={login_data['token']}&id={login_data['personid']}")
             resp = requests.get(login_url, cookies=cookies)
@@ -70,7 +82,7 @@ def login(redis, login_data=None, updateCache=False, login_token=False):
             if 'Der verwendete Login-Link ist nicht mehr aktuell und kann deshalb nicht mehr verwendet werden.' in resp.text:
                 redis.delete(get_user_login_key(login_data['telegramid']))
                 return False, 'Login fehlgeschlagen, versuchs es mit einem neuen Link.'
-            else:
+            else: # get new login key & cookies using login token
                 data = cc_api(f'persons/{login_data["personid"]}/logintoken', cookies=cookies, login_data=login_data, json=True)
                 if data['status'] == 'success':
                     inner_data = data['data']
@@ -79,7 +91,7 @@ def login(redis, login_data=None, updateCache=False, login_token=False):
                     redis.set(key, pickle.dumps(cookies.get_dict()))
                 else:
                     return False, 'Login fehlgeschlagen, bitte log dich neu ein.'
-        else:
+        else: # get new cookies using login key
             try:
                 token_url = f'whoami?login_token={login_key}&user_id={login_data["personid"]}'
                 data = cc_api(token_url, cookies, login_data=login_data, json=True)
