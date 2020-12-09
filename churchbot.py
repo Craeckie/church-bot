@@ -90,17 +90,37 @@ def person(redis, bot, update, text, reply_markup, login_data, contact=False):
 
 
 def group(redis, bot, update, text, reply_markup, login_data):
+    res = None
     try:
         res = groups.findGroup(redis, login_data, text)
-        msg = res['msg']
-        if 'photo' in res and res['photo']:
-            bot.send_photo(update.message.chat_id, photo=res['photo'], caption=res['msg'],
-                           parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
-            return
     except Exception as e:
         msg = f"Failed!\nException: {e}"
         logger.error(msg)
-    send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
+        return
+
+    # Combine lines to messages
+    cur_part = ''
+    num_lines = 0
+    messages = []
+    for line in res['msg']:
+        cur_part += line
+        num_lines += 1
+        if num_lines > 80 or len(cur_part) > 5000:
+            messages.append(cur_part)
+            cur_part = ''
+            num_lines = 0
+    messages.append(cur_part)
+    try:
+        msg = messages[0]
+        if 'photo' in res and res['photo']:
+            bot.send_photo(update.message.chat_id, photo=res['photo'], caption=msg,
+                           parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
+            messages.pop(0)
+    except Exception as e:
+        msg = f"Failed!\nException: {e}"
+        logger.error(msg)
+    for msg in messages:
+        send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
 
 def message(bot, update):
     user_id = update.message.from_user.id

@@ -56,7 +56,7 @@ def findGroup(redis, login_data, name):
             }
         res = {
             'success': False,
-            'msg': f"No group found with the name {name} :(",
+            'msg': [f"No group found with the name {name} :("],
         }
         matches = []
         groups = data['groups']
@@ -71,7 +71,7 @@ def findGroup(redis, login_data, name):
                 bez = group['bezeichnung']
                 if name in bez.lower():
                     matches.append(group)
-        t = ''
+        t = []
         if len(matches) == 0:
             pass
         elif len(matches) < 10:
@@ -85,11 +85,10 @@ def findGroup(redis, login_data, name):
             for g in matches:
                 g_id = g['id']
                 if t:
-                    t += '\n\n'
+                    t[-1] += '\n\n'
                 url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
-                t += f'<a href="{url}">'
                 if len(matches) == 1:
-                    t += f"{g['bezeichnung']}</a>\n"
+                    t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
                     img_id = g['groupimage_id']
                     if img_id:
                         try:
@@ -98,8 +97,8 @@ def findGroup(redis, login_data, name):
                         except:
                             pass
                 else:
-                    t += f"{g['bezeichnung']}</a> /G{g_id}\n"
-                t += "\n<b>Teilnehmer</b>\n"
+                    t.append(f'<a href="{url}">{g["bezeichnung"]}</a> /G{g_id}\n')
+                t.append("\n<b>Teilnehmer</b>\n")
                 mem_count = 0
                 for p_id in persons:
                     p = persons[p_id]
@@ -108,14 +107,13 @@ def findGroup(redis, login_data, name):
                         if g_id in p_groups:
                             p_group = p_groups[g_id]
                             typeStatus = data['grouptypeMemberstatus'][p_group['groupmemberstatus_id']]['bezeichnung']
-                            t += _printPerson(redis, login_data, p, personList=True, onlyName=True, additionalName=f'{typeStatus}')
-                            t += '\n'
+                            t.append(_printPerson(redis, login_data, p, personList=True, onlyName=True, additionalName=f'{typeStatus}') + '\n')
                             mem_count += 1
-                            if mem_count >= 20:
-                                t += "..."
+                            if len(matches) > 1 and mem_count >= 5 or mem_count > 100:
+                                t.append("...")
                                 break
                 if 'places' in g:
-                    t += "\n<b>Treffpunkte</b>\n"
+                    t.append("\n<b>Treffpunkte</b>\n")
                     places = ''
                     for place in g['places']:
                         if places:
@@ -125,7 +123,7 @@ def findGroup(redis, login_data, name):
                             city += f' ({place["district"]})'
                         places += '\n'.join([info for info in [place['meetingby'], place['street'], city] if info])
                         places += '\n'
-                    t += places
+                    t.append(places)
             res.update({
                 'msg': t,
                 'success': True
@@ -135,20 +133,19 @@ def findGroup(redis, login_data, name):
             for g in matches:
                 g_id = g['id']
                 url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
-                t += f'<a href="{url}">'
-                t += f"{g['bezeichnung']}</a> /G{g_id}\n"
+                t.append(f'<a href="{url}">{g["bezeichnung"]}</a> /G{g_id}\n')
                 res.update({
                     'msg': t,
                     'success': True
                 })
         else:
             res.update({
-                'msg': 'Zu viele Gruppen gefunden! Bitte Suche verfeinern',
+                'msg': ['Zu viele Gruppen gefunden! Bitte Suche verfeinern'],
                 'success': False
             })
 
     if error:
-        res['msg'] += f'\n<i>{error}</i>'
+        res['msg'].append(f'\n<i>{error}</i>')
     else:
         redis.set(key, pickle.dumps(res), ex=7 * 24 * 3600)
     return res
