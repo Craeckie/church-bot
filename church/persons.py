@@ -16,12 +16,10 @@ def _parseNumber(num):
         m = re.search("([0-9 /-]+)", num)
         if m:
             num = m.group(0).replace(' ', '').replace('/', '').replace('-', '')
-            # try:
-            num = phonenumbers.parse(num, None if num[0] == '+' else 'DE')
+            if num:
+                num = phonenumbers.parse(num, None if num[0] == '+' else 'DE')
 
-            return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)
-            # except:
-            #  pass
+                return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)
 
     return None
 
