@@ -1,13 +1,10 @@
 import json
 import logging
 import pickle
-import shutil
 from datetime import datetime
 from io import BytesIO
-from urllib.parse import urlparse, urljoin
-
+from urllib.parse import urljoin
 import requests
-from urllib3.exceptions import NewConnectionError
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
