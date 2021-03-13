@@ -429,6 +429,38 @@ def message(bot, update):
         elif text == MARKUP_GROUPS:
             r.set(mode_key, 'group')
             send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein):", None, empty_markup)
+        elif text == MARKUP_EVENTS:
+            (errorBlock, blockData) = getAjaxResponse(r, "home", "getBlockData", login_data=login_data,
+                                                      timeout=1800)
+            (errorMaster, masterData) = getAjaxResponse(r, "db", "getMasterData", login_data=login_data,
+                                                        timeout=2 * 3600)
+            groups = masterData['groups']
+            if blockData and masterData:
+                try:
+                    availableEventIDs = blockData['blocks']['managemymembership']['data']['chosable']
+                    msg = '<b>Aktuelle Veranstaltungen für dich</b>\n'
+                    for eventID in reversed(availableEventIDs):
+                        cur_group = groups[eventID]
+                        if 'gruppentyp_id' in cur_group and cur_group['gruppentyp_id'] == '4' \
+                                and ('treffzeit' in cur_group and cur_group['treffzeit'] or \
+                                     'parents' in cur_group and '655' in cur_group['parents'] or \
+                                     'notiz' in cur_group and cur_group['notiz']) \
+                                and not any(cur_group["bezeichnung"].startswith(x) for x in ['Abo ', 'Antrag ', 'Zugang zu ChurchTools']):
+                            msg += f'{cur_group["bezeichnung"]} /G{cur_group["id"]}\n'
+                    send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
+                except Exception as e:
+                    msg = f"Failed!\nException: {e}"
+                    logger.error(msg)
+                    send_message(bot, update.message.chat_id, msg, None, reply_markup)
+            else:
+                if errorMaster:
+                    send_message(bot, update.message.chat_id, "Konnte Master-Daten nicht abrufen:\n" + errorMaster,
+                                 None, reply_markup)
+                elif errorBlock:
+                    send_message(bot, update.message.chat_id, "Konnte Block-Daten nicht abrufen:\n" + errorBlock, None,
+                                 reply_markup)
+                else:
+                    send_message(bot, update.message.chat_id, "Konnte Daten nicht abrufen", None, reply_markup)
         else:  # search for person #re.match('\+?[0-9]+', text) is not None and
             m = re.match("churchtools://login\?instanceurl=([^&]+)&loginstring=([^&]+)&personid=([0-9]+)", text)
             if m:
