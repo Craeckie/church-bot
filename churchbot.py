@@ -28,7 +28,7 @@ from church import utils
 from church import songs, groups
 
 utils.logging.basicConfig(level=utils.logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(mesparseGeburtstagesage)s')
+                          format='%(asctime)s - %(name)s - %(levelname)s - %(mesparseGeburtstagesage)s')
 
 logger = utils.logging.getLogger(__name__)
 
@@ -38,7 +38,6 @@ r = redis.Redis(
     db=int(os.environ.get('REDIS_DB', 0)))
 r.set_response_callback('HGET', json.loads)
 
-
 main_url = os.environ.get('CHURCH_URL', 'https://feg-karlsruhe.church.tools/')
 
 MARKUP_ROOMS = '🏠 Räume'
@@ -47,20 +46,25 @@ MARKUP_BIRTHDAYS = u'\U0001F382 Geburtstage'
 MARKUP_PEOPLE = u'\U0001F464 Personen'
 MARKUP_GROUPS = u'\U0001F465 Gruppen'
 MARKUP_SONGS = u'\U0001F3BC Lieder'
+MARKUP_EVENTS = '\U0001F465 Veranstaltungen'
 
 MARKUP_PC = u'💻 PC'
 MARKUP_PHONE = u'\U0001F4F1 Handy'
 
+
 def _getMarkup():
     custom_keyboard = [[MARKUP_ROOMS,
                         MARKUP_CALENDAR,
-                       MARKUP_BIRTHDAYS],
-                       [MARKUP_PEOPLE, MARKUP_SONGS, MARKUP_GROUPS]]
+                        MARKUP_BIRTHDAYS],
+                       [MARKUP_PEOPLE, MARKUP_SONGS, MARKUP_GROUPS],
+                       [MARKUP_EVENTS]]
     return ReplyKeyboardMarkup(custom_keyboard)
+
 
 def send_message(bot, chat_id, text, parse_mode, reply_markup):
     try:
-        bot.send_message(chat_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup, disable_web_page_preview=True)
+        bot.send_message(chat_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup,
+                         disable_web_page_preview=True)
     except Exception as e:
         logger.error(f"Sending Message as {parse_mode} failed!\n{text}")
         logger.error(e)
@@ -71,15 +75,16 @@ def person(redis, bot, update, text, reply_markup, login_data, contact=False):
         res = searchPerson(redis, login_data, text)
         logger.debug(res)
         if contact and 'contact' in res:
-             bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)
+            bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)
         else:
             if 'photo_raw' in res:
                 try:
-                  bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']), caption=res['msg'],
-                                 parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
+                    bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']), caption=res['msg'],
+                                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
                 except Exception as e:
-                  res['msg'] += f'\n<i>Couldn\'t send photo :(\nYou can open it </i><a href="{res["photo_url"]}">here</a>.'
-                  send_message(bot, update.effective_chat.id, res['msg'], telegram.ParseMode.HTML, reply_markup)
+                    res[
+                        'msg'] += f'\n<i>Couldn\'t send photo :(\nYou can open it </i><a href="{res["photo_url"]}">here</a>.'
+                    send_message(bot, update.effective_chat.id, res['msg'], telegram.ParseMode.HTML, reply_markup)
             else:
                 send_message(bot, update.effective_chat.id, res['msg'], telegram.ParseMode.HTML, reply_markup)
     except Exception as e:
@@ -122,6 +127,7 @@ def group(redis, bot, update, text, reply_markup, login_data):
     for msg in messages:
         send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
 
+
 def message(bot, update):
     user_id = update.message.from_user.id
     login_key = get_user_login_key(user_id)
@@ -141,7 +147,7 @@ def message(bot, update):
                       "Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie"
                 bot.send_photo(update.message.chat_id, photo=f, caption=msg,
                                parse_mode=telegram.ParseMode.HTML, reply_markup=login_markup)
-        else: #PC
+        else:  # PC
             with open('church/login-help-pc.png', 'rb') as f:
                 msg = f'Geh auf die <a href="{main_url}">Webseite von Churchtools</a>\n.' \
                       "Log dich dort ein, dann\n(1) Namen->ChurchTools App:\n" \
@@ -152,7 +158,9 @@ def message(bot, update):
                                parse_mode=telegram.ParseMode.HTML, reply_markup=login_markup)
         return
     elif not text.startswith('churchtools://'):
-        send_message(bot, update.message.chat_id, "Willkommen beim inoffiziellen ChurchTools-Bot!\nZuerst musst du dich einloggen.\nWas benutzt du gerade?", None, reply_markup=login_markup)
+        send_message(bot, update.message.chat_id,
+                     "Willkommen beim inoffiziellen ChurchTools-Bot!\nZuerst musst du dich einloggen.\nWas benutzt du gerade?",
+                     None, reply_markup=login_markup)
         return
 
     mode_key = f'{user_id}:mode'
@@ -179,7 +187,8 @@ def message(bot, update):
                         send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
                 elif text == 'Suche':
                     r.set(mode_key, 'calendar_search')
-                    send_message(bot, update.message.chat_id, "Gib den Namen des Kalendereintrags (oder einen Teil davon ein):",
+                    send_message(bot, update.message.chat_id,
+                                 "Gib den Namen des Kalendereintrags (oder einen Teil davon ein):",
                                  None,
                                  empty_markup)
             except Exception as e:
@@ -267,7 +276,7 @@ def message(bot, update):
                             elif res['type'] == 'msg':
                                 for msg in res['msg']:
                                     send_message(bot, update.message.chat_id, msg, None, reply_markup)
-                            else: # file
+                            else:  # file
                                 send_message(bot, update.message.chat_id, res['file'], None, reply_markup)
                         else:
                             send_message(bot, update.message.chat_id, res, None, reply_markup)
@@ -313,14 +322,16 @@ def message(bot, update):
                         (error, masterData) = getAjaxResponse(r, "service", "getMasterData", login_data=login_data,
                                                               timeout=3600)
 
-                        (error, eventData) = getAjaxResponse(r, "service", "getAllEventData", login_data=login_data, timeout=1800)
+                        (error, eventData) = getAjaxResponse(r, "service", "getAllEventData", login_data=login_data,
+                                                             timeout=1800)
                         event = eventData[a_id]
 
                         msg = f'<b>{event["bezeichnung"]}</b>\n'
 
                         masterService = masterData['service']
                         masterServiceGroups = masterData['servicegroup']
-                        servicegroups = [None] * max([int(masterServiceGroups[x]['sortkey']) for x in masterServiceGroups])
+                        servicegroups = [None] * max(
+                            [int(masterServiceGroups[x]['sortkey']) for x in masterServiceGroups])
                         for service in event['services']:
                             if service['name']:
                                 name = service['name']
@@ -382,7 +393,7 @@ def message(bot, update):
                             elif isBeforeEvent:
                                 part += '</i>'
                             msg += part + "\n"
-                else: # no data
+                else:  # no data
                     msg = '<i>Für diese Veranstaltung gibt es keinen Ablaufplan</i>'
                 send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
             except Exception as e:
@@ -409,10 +420,12 @@ def message(bot, update):
                 send_message(bot, update.message.chat_id, msg, None, reply_markup)
         elif text == MARKUP_SONGS:
             r.set(mode_key, 'song')
-            send_message(bot, update.message.chat_id, "Gib den Namen/Author (oder einen Teil davon ein):", None, empty_markup)
+            send_message(bot, update.message.chat_id, "Gib den Namen/Author (oder einen Teil davon ein):", None,
+                         empty_markup)
         elif text == MARKUP_PEOPLE:
             r.set(mode_key, 'person')
-            send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein) oder eine Telefonnumer ein:", None, empty_markup)
+            send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein) oder eine Telefonnumer ein:",
+                         None, empty_markup)
         elif text == MARKUP_GROUPS:
             r.set(mode_key, 'group')
             send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein):", None, empty_markup)
@@ -439,7 +452,8 @@ def login(bot, update, login_data):
         if success:
             r.set(login_key, json.dumps(login_data))
             send_message(bot, update.message.chat_id,
-                         "Erfolgreich eingeloggt!\nDu kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen.", None, reply_markup)
+                         "Erfolgreich eingeloggt!\nDu kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen.",
+                         None, reply_markup)
         else:
             r.delete(login_key)
             send_message(bot, update.message.chat_id,
@@ -477,6 +491,7 @@ def photo(bot, update):
                  reply_markup=_getMarkup())
     #
     # except
+
 
 if __name__ == '__main__':
     logger.info("Telegram bot starting..")
