@@ -10,7 +10,7 @@ def parseGeburtstage(redis, login_data):
     key = get_cache_key(login_data, 'birthdays', useDate=True)
     msg = loadCache(redis, key)
     if not msg:
-        (error, data) = getAjaxResponse(redis, 'home', 'getBlockData', login_data=login_data, timeout=300)
+        (error, data) = getAjaxResponse(redis, 'home', 'getBlockData', login_data=login_data, timeout=1800)
 
         if not data:
             print(error)

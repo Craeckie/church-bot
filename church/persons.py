@@ -38,7 +38,7 @@ def _printPerson(redis, login_data, p, personList=False, onlyName=False, additio
     data = None
     if not personList and not onlyName:
         (error, data) = getAjaxResponse(redis, "db", "getPersonDetails", login_data=login_data, id=p['p_id'],
-                                        timeout=7 * 24 * 3600)
+                                        timeout=24 * 3600)
     if data:
         p = dict([(k, v) for (k, v) in data.items() if v])
     else:
@@ -120,7 +120,7 @@ def _getContact(p, photo_raw):
 def _getPhoto(redis, login_data, p):
     id = p['p_id']
     photo = None
-    (error, data) = getAjaxResponse(redis, "db", "getPersonDetails", login_data=login_data, id=id, timeout=7 * 24 * 3600)
+    (error, data) = getAjaxResponse(redis, "db", "getPersonDetails", login_data=login_data, id=id, timeout=24 * 3600)
     if data:
         if 'imageurl' in data and data['imageurl']:
             img_id = data['imageurl']
@@ -163,7 +163,7 @@ def _getPersonInfo(redis, login_data, person):
 
 
 def searchPerson(redis, login_data, text):
-    (error, data) = getAjaxResponse(redis, "db", "getAllPersonData", login_data=login_data, timeout=7 * 24 * 3600)
+    (error, data) = getAjaxResponse(redis, "db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
 
     if not data:
         return {

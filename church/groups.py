@@ -48,7 +48,7 @@ def findGroup(redis, login_data, name):
     res = loadCache(redis, key)
     error = None
     if not res:
-        (error, data) = getAjaxResponse(redis, "db", "getMasterData", login_data=login_data, timeout=7 * 24 * 3600)
+        (error, data) = getAjaxResponse(redis, "db", "getMasterData", login_data=login_data, timeout=2 * 3600)
         if not data:  # or 'groups':
             return {
                 'success': False,
@@ -75,7 +75,7 @@ def findGroup(redis, login_data, name):
         if len(matches) == 0:
             pass
         elif len(matches) < 10:
-            (error, persons) = getAjaxResponse(redis, "db", "getAllPersonData", login_data=login_data, timeout=7 * 24 * 3600)
+            (error, persons) = getAjaxResponse(redis, "db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
 
             if not persons:
                 return {
@@ -92,7 +92,7 @@ def findGroup(redis, login_data, name):
                     img_id = g['groupimage_id']
                     if img_id:
                         try:
-                            img_data = getAjaxResponse(redis, f'files/{img_id}/metadata', login_data=login_data, isAjax=False, timeout=3600 * 24)
+                            img_data = getAjaxResponse(redis, f'files/{img_id}/metadata', login_data=login_data, isAjax=False, timeout=24 * 3600)
                             res['photo'] = urljoin(login_data['url'], img_data[1]['url'])
                         except:
                             pass

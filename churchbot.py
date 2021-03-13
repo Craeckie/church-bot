@@ -311,7 +311,7 @@ def message(bot, update):
                     msg = ''
                     try:
                         (error, masterData) = getAjaxResponse(r, "service", "getMasterData", login_data=login_data,
-                                                              timeout=7 * 24 * 3600)
+                                                              timeout=3600)
 
                         (error, eventData) = getAjaxResponse(r, "service", "getAllEventData", login_data=login_data, timeout=1800)
                         event = eventData[a_id]

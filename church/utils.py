@@ -156,7 +156,7 @@ def getPersonLink(login_data, id):
     return f'<a href="{url}">'
 
 
-def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600 * 2, additionalCacheKey=None, **params):
+def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600, additionalCacheKey=None, **params):
     key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
     resp_str = redis.get(key)
     resp = json.loads(resp_str.decode('utf-8')) if resp_str else None
