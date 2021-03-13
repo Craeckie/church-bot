@@ -20,26 +20,26 @@ def _printEntry(dict, key, description='', italic=False, bold=False):
     return t
 
 
-def _printGroup(login_data, dict, g, list=False, onlyName=False):
-    url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g["id"]}')
+def _printGroup(login_data, groupTypes, group, list=False, onlyName=False):
+    url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{group["id"]}')
     t = f'<a href="{url}">'
-    t += f"{g['bezeichnung']}</a>"
+    t += f"{group['bezeichnung']}</a>"
     if list:
-        t += f" /g_{g['id']}"
+        t += f" /g_{group['id']}"
     if onlyName:
         return t
-    type = _getGroupType(dict, g['gruppentyp_id'])
+    type = _getGroupType(groupTypes, group['gruppentyp_id'])
     t += "\n"
     t += f"Typ: <b>{type}</b>\n"
-    t += _printEntry(g, description='Zeit: ', key='treffzeit', bold=True)
-    t += _printEntry(g, description='Max. Teilnehmer:', key='max_teilnehmer')
+    t += _printEntry(group, description='Zeit: ', key='treffzeit', bold=True)
+    t += _printEntry(group, description='Max. Teilnehmer:', key='max_teilnehmer')
     t += "\n"
-    t += _printEntry(g, key='notiz', italic=True)
+    description = _printEntry(group, key='notiz', italic=False)
+    t += re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', description)
     return t
 
 
-def _getGroupType(data, id):
-    types = data['groupTypes']
+def _getGroupType(types, id):
     return types[id]['bezeichnung']
 
 
@@ -88,7 +88,14 @@ def findGroup(redis, login_data, name):
                     t[-1] += '\n\n'
                 url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
                 if len(matches) == 1:
-                    t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
+                    #t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
+                    t.append(_printGroup(
+                        login_data=login_data,
+                        groupTypes=data['groupTypes'],
+                        group=g,
+                        list=False,
+                        onlyName=False
+                        ))
                     img_id = g['groupimage_id']
                     if img_id:
                         try:
@@ -98,7 +105,7 @@ def findGroup(redis, login_data, name):
                             pass
                 else:
                     t.append(f'<a href="{url}">{g["bezeichnung"]}</a> /G{g_id}\n')
-                t.append("\n<b>Teilnehmer</b>\n")
+                t.append("\n<pre>Teilnehmer</pre>\n")
                 mem_count = 0
                 for p_id in persons:
                     p = persons[p_id]
@@ -113,7 +120,7 @@ def findGroup(redis, login_data, name):
                                 t.append("...")
                                 break
                 if 'places' in g:
-                    t.append("\n<b>Treffpunkte</b>\n")
+                    t.append("\n<pre>Treffpunkte</pre>\n")
                     places = ''
                     for place in g['places']:
                         if places:
