@@ -194,9 +194,9 @@ def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600, additio
                 relogin = True
         if resp['status'] != 'success' or 'data' not in resp:
             if 'message' in resp:
-                return "Error: %s" % resp['message'], None
+                return resp['message'], None
             else:
-                return "Error: %s" % str(resp), None
+                return str(resp), None
         else:
             resp_str = json.dumps(resp)
             redis.set(key, resp_str, ex=timeout)
