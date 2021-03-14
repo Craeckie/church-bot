@@ -313,17 +313,17 @@ def message(bot, update):
             a_id = mAgenda.group(1)
             try:
                 (error, data) = getAjaxResponse(r, f'events/{a_id}/agenda', login_data=login_data, isAjax=False,
-                                                timeout=1800)
+                                                timeout=600)
                 if 'data' in data:
                     data = data['data']
 
                     msg = ''
                     try:
                         (error, masterData) = getAjaxResponse(r, "service", "getMasterData", login_data=login_data,
-                                                              timeout=3600)
+                                                              timeout=None)
 
                         (error, eventData) = getAjaxResponse(r, "service", "getAllEventData", login_data=login_data,
-                                                             timeout=1800)
+                                                             timeout=600)
                         event = eventData[a_id]
 
                         msg = f'<b>{event["bezeichnung"]}</b>\n'
@@ -431,7 +431,7 @@ def message(bot, update):
             send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein):", None, empty_markup)
         elif text == MARKUP_EVENTS:
             (errorBlock, blockData) = getAjaxResponse(r, "home", "getBlockData", login_data=login_data,
-                                                      timeout=1800)
+                                                      timeout=None)
             (errorMaster, masterData) = getAjaxResponse(r, "db", "getMasterData", login_data=login_data,
                                                         timeout=2 * 3600)
             groups = masterData['groups']

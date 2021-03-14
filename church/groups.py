@@ -47,8 +47,8 @@ def findGroup(redis, login_data, name):
     key = get_cache_key(login_data, 'group:find', name)
     res = loadCache(redis, key)
     error = None
-    if not res:
-        (error, data) = getAjaxResponse(redis, "db", "getMasterData", login_data=login_data, timeout=2 * 3600)
+    if not res or True:
+        (error, data) = getAjaxResponse(redis, "db", "getMasterData", login_data=login_data, timeout=None)
         if not data:  # or 'groups':
             return {
                 'success': False,

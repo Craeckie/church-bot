@@ -157,7 +157,7 @@ def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600, additio
     key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
     resp_str = redis.get(key)
     resp = json.loads(resp_str.decode('utf-8')) if resp_str else None
-    if not resp:
+    if not resp or not timeout:
         relogin = False
         while True:
 

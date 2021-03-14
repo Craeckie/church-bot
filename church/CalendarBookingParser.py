@@ -55,7 +55,7 @@ class CalendarBookingParser(BookingParser):
         key = get_cache_key(self.login_data, self.cache_key + 'master_data')
         cat_data = self._loadCache(key)
         if not cat_data:
-            (error, data) = super()._ajaxResponse(func='getMasterData', timeout=30 * 24 * 3600)
+            (error, data) = super()._ajaxResponse(func='getMasterData', timeout=None)
             if not data:
                 return error, data
             categories = data['category']
