@@ -70,6 +70,8 @@ def _printPerson(redis, login_data, p, personList=False, onlyName=False, additio
 
 def _printPersons(redis, login_data, t, ps):
     texts = []
+    ps = sorted(ps, key=lambda p: p['vorname'])
+    ps = sorted(ps, key=lambda p: p['name'])
     for p in ps:
         texts.append(_printPerson(redis, login_data, p, personList=len(ps) > 1, onlyName=len(ps) > 5))
     return t + '\n\n'.join(texts)
