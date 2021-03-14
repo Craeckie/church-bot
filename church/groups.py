@@ -20,22 +20,96 @@ def _printEntry(dict, key, description='', italic=False, bold=False):
     return t
 
 
-def _printGroup(login_data, groupTypes, group, list=False, onlyName=False):
-    url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{group["id"]}')
+def _printGroup(redis, login_data, group, persons, masterData, list=False, onlyName=False):
+    g_id = group['id']
+    url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
     t = f'<a href="{url}">'
     t += f"{group['bezeichnung']}</a>"
     if list:
-        t += f" /g_{group['id']}"
+        t += f" /G{g_id}"
     if onlyName:
         return t
-    type = _getGroupType(groupTypes, group['gruppentyp_id'])
+    type = _getGroupType(masterData['groupTypes'], group['gruppentyp_id'])
     t += "\n"
     t += f"Typ: <b>{type}</b>\n"
     t += _printEntry(group, description='Zeit: ', key='treffzeit', bold=True)
     t += _printEntry(group, description='Max. Teilnehmer:', key='max_teilnehmer')
     t += "\n"
+
     description = _printEntry(group, key='notiz', italic=False)
-    t += re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', description)
+    description = re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', description)
+    if list and len(description) > 120:
+        description = description[:100] + "..."
+    t += description
+
+    t += "\n<pre>Teilnehmer</pre>\n"
+    mem_count = 0
+    for p_id in persons:
+        p = persons[p_id]
+        if 'groupmembers' in p:
+            p_groups = p['groupmembers']
+            if g_id in p_groups:
+                p_group = p_groups[g_id]
+                typeStatus = masterData['grouptypeMemberstatus'][p_group['groupmemberstatus_id']]['bezeichnung']
+                t += _printPerson(redis, login_data, p, personList=True, onlyName=True,
+                                      additionalName=f'{typeStatus}') + '\n'
+                mem_count += 1
+                if list and mem_count >= 5 or mem_count > 100:
+                    t += "..."
+                    break
+    if mem_count == 0:
+        t += '<i>Keine Teilnehmer gefunden</i>\n'
+
+    if 'places' in group and group['places']:
+        t += "\n<pre>Treffpunkte</pre>\n"
+        places = ''
+        for place in group['places']:
+            if places:
+                places += '\n'
+            city = ' '.join([place[key] for key in ['postalcode', 'city'] if place[key]])
+            if place["district"]:
+                city += f' ({place["district"]})'
+            places += '\n'.join([info for info in [place['meetingby'], place['street'], city] if info])
+            places += '\n'
+        t += places
+
+    # https://feg-karlsruhe.church.tools/api/publicgroups/1036
+    if not list:
+        (error, data) = getAjaxResponse(redis,
+                                        f'publicgroups/{g_id}',
+                                        login_data=login_data,
+                                        isAjax=False,
+                                        timeout=600)
+        if data and 'data' in data:
+            # TODO: WTH?
+            data = data['data']
+            t += '\n<pre>Anmeldung</pre>\n'
+            t += _printEvent(data)
+            if 'canSignUp' in data and data['canSignUp']:
+                t += f'\n<b>Jetzt anmelden: /E{g_id}</b>'
+        else:
+            t += "<i>Konnte Veranstaltungsdaten nicht abrufen: " + error + "</i>"
+
+    return t
+
+
+def _printEvent(data):
+    t = ''
+    if 'information' in data:
+        info = data['information']
+        time = ''
+        if 'weekday' in info and info['weekday'] and 'nameTranslated' in info['weekday']:
+            time += info['weekday']['nameTranslated']
+            if time:
+                time += ' · '
+        if 'meetingTime' in info and info['meetingTime']:
+            time += info['meetingTime']
+        if time:
+            t += f'Zeitpunkt: <b>{time}</b>\n'
+    max_mem = data['maxMemberCount']
+    cur_mem = data['currentMemberCount']
+    free_mem = max(0, max_mem - cur_mem)
+    t += f'Plätze: <b>{free_mem}/{max_mem}</b> frei\n'
     return t
 
 
@@ -90,9 +164,11 @@ def findGroup(redis, login_data, name):
                 if len(matches) == 1:
                     #t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
                     t.append(_printGroup(
+                        redis=redis,
                         login_data=login_data,
-                        groupTypes=data['groupTypes'],
                         group=g,
+                        persons=persons,
+                        masterData=data,
                         list=False,
                         onlyName=False
                         ))
@@ -105,32 +181,7 @@ def findGroup(redis, login_data, name):
                             pass
                 else:
                     t.append(f'<a href="{url}">{g["bezeichnung"]}</a> /G{g_id}\n')
-                t.append("\n<pre>Teilnehmer</pre>\n")
-                mem_count = 0
-                for p_id in persons:
-                    p = persons[p_id]
-                    if 'groupmembers' in p:
-                        p_groups = p['groupmembers']
-                        if g_id in p_groups:
-                            p_group = p_groups[g_id]
-                            typeStatus = data['grouptypeMemberstatus'][p_group['groupmemberstatus_id']]['bezeichnung']
-                            t.append(_printPerson(redis, login_data, p, personList=True, onlyName=True, additionalName=f'{typeStatus}') + '\n')
-                            mem_count += 1
-                            if len(matches) > 1 and mem_count >= 5 or mem_count > 100:
-                                t.append("...")
-                                break
-                if 'places' in g:
-                    t.append("\n<pre>Treffpunkte</pre>\n")
-                    places = ''
-                    for place in g['places']:
-                        if places:
-                            places += '\n'
-                        city = ' '.join([place[key] for key in ['postalcode', 'city'] if place[key]])
-                        if place["district"]:
-                            city += f' ({place["district"]})'
-                        places += '\n'.join([info for info in [place['meetingby'], place['street'], city] if info])
-                        places += '\n'
-                    t.append(places)
+
             res.update({
                 'msg': t,
                 'success': True
@@ -156,3 +207,33 @@ def findGroup(redis, login_data, name):
     else:
         redis.set(key, pickle.dumps(res), ex=7 * 24 * 3600)
     return res
+
+
+def get_signup_key(user_id):
+    return f'{user_id}:signup'
+
+
+def next_signup_field(signup_info):
+    signup_form = signup_info['form']
+    needs_filling = [field for field in signup_form if field['value'] == None]
+    msg = ''
+    markup = None
+    if len(needs_filling) > 0:
+        field = needs_filling[0]
+        signup_info['cur_field'] = field['id']
+        return field
+    else:
+        return None
+
+def get_field_info(field):
+    markup = [[]]
+    name = field["name"]
+    if field['type'] == 'custom':
+        markup = [[opt['id'] for opt in field['options']]]
+        msg = f'<b>Wähle {name}</b>\n'
+    elif field['type'] == 'comment':
+        markup = [['Kein Kommentar']]
+        msg = f'<b>Ein Kommentar? ({name})</b>'
+    else:
+        msg = f'Unbekannter Feldtyp: {field["type"]}\n'
+    return msg, markup
