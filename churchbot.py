@@ -291,6 +291,27 @@ def message(update, context):
                     else:
                         send_message(bot, update.message.chat_id, "<b>Erfolgreich angemeldet!</b>",
                                      telegram.ParseMode.HTML, reply_markup)
+                        (error, data) = getAjaxResponse(r,
+                                                        f'groups/{g_id}/qrcodecheckin/{p_id}/pdf',
+                                                        login_data=login_data,
+                                                        isAjax=False,
+                                                        **params,
+                                                        timeout=None)
+                        if data and 'data' in data and data['data'] and 'url' in data and data['url']:
+                            url = data['data']['url']
+                            try:
+                                bot.send_photo(update.effective_chat.id, photo=url,
+                                               caption="QR-Code fürs Check-In",
+                                               parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
+                            except Exception as e:
+                                send_message(bot, update.message.chat_id,
+                                             "<i>Konnte QR-Code nicht senden :(</i>\n" + e,
+                                             telegram.ParseMode.HTML,
+                                             reply_markup)
+                        else:
+                            send_message(bot, update.message.chat_id, "<i>Konnte QR-Code nicht abrufen :(</i>\n" + error,
+                                         telegram.ParseMode.HTML,
+                                         reply_markup)
                 else:
                     send_message(bot, update.message.chat_id, "<b>Anmeldung abgebrochen</b>", telegram.ParseMode.HTML,
                                  reply_markup)
