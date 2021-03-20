@@ -13,18 +13,19 @@ from church.utils import getAjaxResponse, logger, getPersonLink
 
 def _parseNumber(num):
     if num:
-        # m = re.search("([0-9 /-]+)", num)
-        # if m:
-        num = num.replace(' ', '').replace('/', '').replace('-', '')
-        if num:
-            num = phonenumbers.parse(num, region='DE')
-            num_type = phonenumbers.number_type(num)
-            if phonenumbers.is_valid_number(num) and num_type in [
-                phonenumbers.PhoneNumberType.PERSONAL_NUMBER,
-                phonenumbers.PhoneNumberType.MOBILE,
-                phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE]:
-                return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)
-
+        try:
+            num = num.replace(' ', '').replace('/', '').replace('-', '')
+            if num:
+                num = phonenumbers.parse(num, region='DE')
+                num_type = phonenumbers.number_type(num)
+                if phonenumbers.is_valid_number(num) and num_type in [
+                    phonenumbers.PhoneNumberType.FIXED_LINE,
+                    phonenumbers.PhoneNumberType.PERSONAL_NUMBER,
+                    phonenumbers.PhoneNumberType.MOBILE,
+                    phonenumbers.PhoneNumberType.FIXED_LINE_OR_MOBILE]:
+                    return phonenumbers.format_number(num, phonenumbers.PhoneNumberFormat.E164)
+        except phonenumbers.NumberParseException as e:
+            logger.warning(f'Number "{num}" caused an exception: ' + str(e))
     return None
 
 
@@ -75,13 +76,13 @@ def _printPerson(redis, login_data, p, personList=False, onlyName=False, additio
     return t
 
 
-def _printPersons(redis, login_data, t, ps):
+def _printPersons(redis, login_data, ps):
     texts = []
     ps = sorted(ps, key=lambda p: p['vorname'])
     ps = sorted(ps, key=lambda p: p['name'])
     for p in ps:
         texts.append(_printPerson(redis, login_data, p, personList=len(ps) > 1, onlyName=len(ps) > 5))
-    return t + '\n\n'.join(texts)
+    return '\n\n'.join(texts)
 
 
 def _getContact(p, photo_raw):
@@ -193,19 +194,12 @@ def searchPerson(redis, login_data, text):
                     res['msg'] += f'\n<i>{error}</i>'
                 return res
 
-    elif re.match('\+?[0-9 /-]+', text):
+    elif re.match('\+?[0-9 /()-]+', text):
         logger.info(f"Searching through {len(data)} persons..")
         try:
-            res = {
-                'success': False,
-                'msg': f'Eingegebene Nummer ist ungültig. (Beispiele: 0721 12 34 56, 015771234567 oder +1 201/555 0123)'
-            }
             cur = _parseNumber(text)
             if cur:
-                res = {
-                    'success': False,
-                    'msg': f"No one found with the name {text} :(",
-                }
+                matches = []
                 for n in data:
                     person = data[n]
                     if not person:
@@ -214,15 +208,32 @@ def searchPerson(redis, login_data, text):
                     handy = _parseNumber(person['telefonhandy'])
                     if (privat and privat == cur) or (handy and handy == cur):
                         logger.info(f"Found: {person}")
-                        return _getPersonInfo(redis, login_data, person)
+                        matches.append(person)
                     # elif handy:
                     #    logger.info(f"Not {person['vorname']} {person['name']}: {handy}")
-                return {
-                    'msg': f"Mit der Nummer {text} wurde keiner gefunden :("
-                }
-        except phonenumbers.NumberParseException:  # not a phone number
-            pass
+                if len(matches) == 1:
+                    return _getPersonInfo(redis, login_data, matches[0])
+                elif len(matches) > 1:
+                    return {
+                        'success': True,
+                        'msg': _printPersons(redis, login_data, matches)
+                    }
+                else:
+                    return {
+                        'msg': f"Mit der Nummer {text} wurde keiner gefunden :("
+                    }
 
+            else:
+                return {
+                    'success': False,
+                    'msg': f'Eingegebene Nummer ist ungültig. (Beispiele: 0721 12 34 56, 015771234567 oder +1 201/555 0123)'
+                }
+        except phonenumbers.NumberParseException as e:  # not a phone number
+            logger.warning(str(e))
+    res = {
+        'success': False,
+        'msg': f'Niemand gefunden mit dem Namen "{text}" :('
+    }
     searchNameParts = [t.lower() for t in text.split(' ')]
     partialMatches = []
     fullMatches = []
@@ -237,15 +248,11 @@ def searchPerson(redis, login_data, text):
         elif any(s in p for p in nameParts for s in searchNameParts):
             logger.debug(f"Found partial match: {person}")
             partialMatches.append(person)
-        if len(fullMatches) + len(partialMatches) > 30:
-            res['msg'] = f"Found more then 30 people. Please refine your search phrase"
+        if len(fullMatches) + len(partialMatches) > 50:
+            res['msg'] = f"Found more then 50 people. Please refine your search phrase"
             return res
 
     if fullMatches:
-        res.update({
-            'success': True,
-            'msg': _printPersons(redis, login_data, "", fullMatches)
-        })
         if len(fullMatches) == 1:
             photo_url, photo_raw = _getPhoto(redis, login_data, fullMatches[0])
             if photo_url:
@@ -256,11 +263,12 @@ def searchPerson(redis, login_data, text):
             contact = _getContact(fullMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
+        else:
+            res = {
+                'success': True,
+                'msg': _printPersons(redis, login_data, fullMatches)
+            }
     elif partialMatches:
-        res.update({
-            'success': True,
-            'msg': _printPersons(redis, login_data, "", partialMatches)
-        })
         if len(partialMatches) == 1:
             photo_url, photo_raw = _getPhoto(redis, login_data, partialMatches[0])
             if photo_url:
@@ -271,6 +279,11 @@ def searchPerson(redis, login_data, text):
             contact = _getContact(partialMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
+        else:
+            res = {
+                'success': True,
+                'msg': _printPersons(redis, login_data, partialMatches)
+            }
     if error:
         res['msg'] += f'\n<i>{error}</i>'
     return res
