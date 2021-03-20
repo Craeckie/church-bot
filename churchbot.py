@@ -1,18 +1,22 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import locale, traceback
+import locale
 import os
 import pickle
+import traceback
 from datetime import datetime, timezone
 from io import BytesIO
-from operator import attrgetter, itemgetter
 from textwrap import indent
-from time import sleep
 
-import redis, json, re
+import json
+import re
+import redis
+import requests
+
+from PIL import Image
+from pyzbar.pyzbar import decode
+
 from telegram.utils.request import Request
-
-from church.CalendarBookingParser import CalendarBookingParser
 from church.birthdays import parseGeburtstage
 from church.bot import MQBot
 from church.calendar import parseCalendarByTime, parseCalendarByText
@@ -21,6 +25,7 @@ from church.rooms import parseRaeumeByTime, parseRaeumeByText, room_markup
 from church.utils import get_user_login_key, getAjaxResponse
 
 locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
+
 
 import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
@@ -131,7 +136,8 @@ def group(redis, bot, update, text, reply_markup, login_data):
         send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
 
 
-def message(bot, update):
+def message(update, context):
+    bot = context.bot
     user_id = update.message.from_user.id
     login_key = get_user_login_key(user_id)
     login_data_str = r.get(login_key)
@@ -668,14 +674,12 @@ def login(bot, update, login_data):
                      reply_markup)
 
 
-def photo(bot, update):
+def photo(update, context):
     # try:
-    from pyzbar.pyzbar import decode
-    from PIL import Image
-    import requests
+    bot = context.bot
     ps = update.message.photo
     if len(ps) >= 1:
-        url = bot.get_file(ps[0].file_id)['file_path']
+        url = context.bot.get_file(ps[0].file_id)['file_path']
         response = requests.get(url)
         data = decode(Image.open(BytesIO(response.content)))
         if len(data) >= 1:
