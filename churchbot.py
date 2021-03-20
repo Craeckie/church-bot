@@ -161,12 +161,14 @@ def message(update, context):
         else:  # PC
             with open('church/login-help-pc.png', 'rb') as f:
                 msg = f'Geh auf die <a href="{main_url}">Webseite von Churchtools</a>\n.' \
-                      "Log dich dort ein, dann\n(1) Namen->ChurchTools App:\n" \
-                      'Dann mach das Fenster klein und mach einen Screenshot (mit der "Drucken"-Taste).\n' \
-                      "(2) Rechts-klick auf QR-Code wie im Bild, Bild öffnen, dann nochmal Rechts-klick-><b>kopieren</b>\n" \
-                      "Dann hier als Photo an den Bot schicken (einfach STRG+V im Textfeld).\n\n" \
-                      "Falls das nicht geht, kannst du auch mit deinem Handy ein Photo vom QR-Code machen.\n\n" \
-                      "Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie"
+                      'Log dich dort ein, dann\n(1) Namen->ChurchTools App:\n' \
+                      'Dann hast du drei Möglichkeiten:\n' \
+                      '(2a) Rechts-klick auf QR-Code wie im Bild, Bild öffnen, dann nochmal ' \
+                      'Rechts-klick-><b>kopieren</b>\n' \
+                      '(2b) Mach das Fenster klein und mach einen Screenshot (mit der "Drucken"-Taste).\n' \
+                      '(2c) Mach mit deinem Handy ein Photo vom QR-Code.\n\n' \
+                      '(3) Dann hier als Photo an den Bot schicken (am PC einfach STRG+V im Textfeld).\n\n' \
+                      'Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie'
                 bot.send_photo(update.message.chat_id, photo=f, caption=msg,
                                parse_mode=telegram.ParseMode.HTML, reply_markup=login_markup)
         return
