@@ -166,7 +166,7 @@ def message(update, context):
                       '(2a) Rechts-klick auf QR-Code wie im Bild, Bild öffnen, dann nochmal ' \
                       'Rechts-klick-><b>kopieren</b>\n' \
                       '(2b) Mach das Fenster klein und mach einen Screenshot (mit der "Drucken"-Taste).\n' \
-                      '(2c) Mach mit deinem Handy ein Photo vom QR-Code.\n\n' \
+                      '(2c) Mach mit deinem Handy ein Photo vom QR-Code.\n' \
                       '(3) Dann hier als Photo an den Bot schicken (am PC einfach STRG+V im Textfeld).\n\n' \
                       'Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie'
                 bot.send_photo(update.message.chat_id, photo=f, caption=msg,
