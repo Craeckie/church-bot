@@ -15,6 +15,7 @@ import requests
 
 from PIL import Image
 from pyzbar.pyzbar import decode
+from pyzbar.wrapper import ZBarSymbol
 
 from telegram.utils.request import Request
 from church.birthdays import parseGeburtstage
@@ -52,7 +53,7 @@ MARKUP_BIRTHDAYS = u'\U0001F382 Geburtstage'
 MARKUP_PEOPLE = u'\U0001F464 Personen'
 MARKUP_GROUPS = u'\U0001F465 Gruppen'
 MARKUP_SONGS = u'\U0001F3BC Lieder'
-MARKUP_EVENTS = '\U0001F465 Veranstaltungen'
+MARKUP_EVENTS = '\U0001F465 Veranstaltungen (Beta)'
 
 MARKUP_PC = u'💻 PC'
 MARKUP_PHONE = u'\U0001F4F1 Handy'
@@ -291,25 +292,21 @@ def message(update, context):
                     else:
                         send_message(bot, update.message.chat_id, "<b>Erfolgreich angemeldet!</b>",
                                      telegram.ParseMode.HTML, reply_markup)
-                        (error, data) = getAjaxResponse(r,
-                                                        f'groups/{g_id}/qrcodecheckin/{p_id}/pdf',
-                                                        login_data=login_data,
-                                                        isAjax=False,
-                                                        **params,
-                                                        timeout=None)
-                        if data and 'data' in data and data['data'] and 'url' in data and data['url']:
-                            url = data['data']['url']
+                        url = groups.get_qrcode(r, login_data, g_id)
+                        if url:
                             try:
                                 bot.send_photo(update.effective_chat.id, photo=url,
                                                caption="QR-Code fürs Check-In",
-                                               parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
+                                               parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                                               timeout=30)
                             except Exception as e:
                                 send_message(bot, update.message.chat_id,
                                              "<i>Konnte QR-Code nicht senden :(</i>\n" + e,
                                              telegram.ParseMode.HTML,
                                              reply_markup)
                         else:
-                            send_message(bot, update.message.chat_id, "<i>Konnte QR-Code nicht abrufen :(</i>\n" + error,
+                            send_message(bot, update.message.chat_id,
+                                         "<i>Konnte QR-Code nicht abrufen :(</i>\n" + error,
                                          telegram.ParseMode.HTML,
                                          reply_markup)
                 else:
@@ -318,13 +315,14 @@ def message(update, context):
             else:
                 field = groups.next_signup_field(signup_info)
                 if field:
-                    if field['type'] == 'comment' and text == 'Kein Kommentar':
+                    if field['type'] == 'comment' and text == 'Kein Kommentar' or \
+                       field['type'] == 'person' and text == 'Keine Angabe' :
                         field['value'] = ''
                     else:
                         field['value'] = text
                 new_field = groups.next_signup_field(signup_info)
                 if new_field:
-                    msg, field_markup = groups.get_field_info(new_field)
+                    msg, field_markup = groups.get_field_info(new_field, MARKUP_SIGNUP_NO)
                     markup = ReplyKeyboardMarkup(field_markup)
                 else:
                     msg = "<pre>Anmeldedaten</pre>\n"
@@ -345,6 +343,7 @@ def message(update, context):
         mPersonContact = re.match('/C([0-9]+)', text)
         mGroup = re.match('/G([0-9]+)', text)
         mEvent = re.match('/E([0-9]+)', text)
+        mQR    = re.match('/Q([0-9]+)', text)
         mAgenda = re.match('/A([0-9]+)', text)
         mSong1 = re.match('/S([0-9]+)$', text)
         mSong2 = re.match('/S([0-9]+)_([0-9]+)', text)
@@ -455,7 +454,7 @@ def message(update, context):
 
                         field = groups.next_signup_field(signup_info)
                         if field:
-                            field_msg, field_markup = groups.get_field_info(field)
+                            field_msg, field_markup = groups.get_field_info(field, MARKUP_SIGNUP_NO)
                             msg += field_msg
                             markup = ReplyKeyboardMarkup(field_markup)
                         r.set(signup_key, pickle.dumps(signup_info))
@@ -476,6 +475,25 @@ def message(update, context):
                     msg += ":\n" + error
                 msg += "</i>"
                 send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
+        elif mQR:
+            g_id = mQR.group(1)
+            url = groups.get_qrcode(r, login_data, g_id)
+            if url:
+                try:
+                    bot.send_document(update.effective_chat.id, document=url,
+                                   caption="QR-Code fürs Check-In",
+                                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                                   timeout=30)
+                except Exception as e:
+                    send_message(bot, update.message.chat_id,
+                                 "<i>Konnte QR-Code nicht senden :(</i>\n" + str(e),
+                                 telegram.ParseMode.HTML,
+                                 reply_markup)
+            else:
+                send_message(bot, update.message.chat_id,
+                             "<i>Konnte QR-Code nicht abrufen :(</i>\n",
+                             telegram.ParseMode.HTML,
+                             reply_markup)
         elif mSong1 or mSong2:
             try:
                 arrId = None
@@ -622,9 +640,12 @@ def message(update, context):
             grouplist = masterData['groups']
             if blockData and masterData and persons:
                 try:
-                    availableEventIDs = blockData['blocks']['managemymembership']['data']['chosable']
-                    msg = '<b>Aktuelle Veranstaltungen für dich</b>\n'
+                    membership_data = blockData['blocks']['managemymembership']['data']
+                    availableEventIDs = membership_data['chosable']
+                    activeEventIDs = membership_data['member']
+                    msg = '<b>Aktuelle Veranstaltungen</b>\n'
                     cur_groups = []
+                    msg += '<pre>Verfügbare</pre>\n'
                     for eventID in reversed(availableEventIDs):
                         cur_group = grouplist[eventID]
                         if 'gruppentyp_id' in cur_group and cur_group['gruppentyp_id'] == '4' \
@@ -638,13 +659,27 @@ def message(update, context):
                         msg += "<i>Keine Veranstaltungen gefunden</i>\n"
                     else:
                         for cur_group in cur_groups:
-                            msg += groups._printGroup(redis=r,
-                                                      login_data=login_data,
-                                                      group=cur_group,
-                                                      persons=persons,
-                                                      masterData=masterData,
-                                                      list=len(cur_groups) > 1,
-                                                      onlyName=len(cur_groups) > 2) + '\n'
+                            msg += groups.printGroup(redis=r,
+                                                     login_data=login_data,
+                                                     group=cur_group,
+                                                     persons=persons,
+                                                     masterData=masterData,
+                                                     list=len(cur_groups) > 1,
+                                                     onlyName=len(cur_groups) > 2) + '\n'
+                    msg += '\n<pre>Angemeldete</pre>\n'
+                    numActive = 0
+                    for eventID in reversed(activeEventIDs):
+                        cur_group = grouplist[eventID]
+                        msg += groups.printGroup(redis=r,
+                                                 login_data=login_data,
+                                                 group=cur_group,
+                                                 persons=persons,
+                                                 masterData=masterData,
+                                                 list=True,
+                                                 onlyName=True) + '\n'
+                        numActive += 1
+                    if numActive == 0:
+                        msg += "<i>Keine Veranstaltungen gefunden</i>\n"
                     send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
                 except Exception as e:
                     msg = f"Failed!\nException: {e}"
@@ -705,7 +740,7 @@ def photo(update, context):
     if len(ps) >= 1:
         url = context.bot.get_file(ps[0].file_id)['file_path']
         response = requests.get(url)
-        data = decode(Image.open(BytesIO(response.content)))
+        data = decode(Image.open(BytesIO(response.content)), symbols=[ZBarSymbol.QRCODE])
         if len(data) >= 1:
             data = json.loads(data[0].data)
             login_data = {
@@ -737,7 +772,7 @@ if __name__ == '__main__':
     # updater.dispatcher.add_handler(CommandHandler('start', start))
 
     updater.dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, message))
-    updater.dispatcher.add_handler(MessageHandler(Filters.photo, photo))
+    updater.dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, photo))
     # updater.dispatcher.add_handler(CallbackQueryHandler(confirm_value))
 
     # updater.dispatcher.add_handler()

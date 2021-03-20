@@ -2,8 +2,6 @@ import pickle
 import re
 from urllib.parse import urljoin
 
-import requests
-
 from church.persons import _printPerson
 from church.utils import getAjaxResponse, get_cache_key, loadCache
 
@@ -20,7 +18,7 @@ def _printEntry(dict, key, description='', italic=False, bold=False):
     return t
 
 
-def _printGroup(redis, login_data, group, persons, masterData, list=False, onlyName=False):
+def printGroup(redis, login_data, group, persons, masterData, list=False, onlyName=False):
     g_id = group['id']
     url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
     t = f'<a href="{url}">'
@@ -86,7 +84,16 @@ def _printGroup(redis, login_data, group, persons, masterData, list=False, onlyN
             t += '\n<pre>Anmeldung</pre>\n'
             t += _printEvent(data)
             if 'canSignUp' in data and data['canSignUp']:
-                t += f'\n<b>Jetzt anmelden: /E{g_id}</b>'
+                p_id = int(login_data['personid'])
+                (error, data) = getAjaxResponse(redis,
+                                                f'groups/{g_id}/qrcodecheckin/{p_id}',
+                                                login_data=login_data,
+                                                isAjax=False,
+                                                timeout=None)
+                if data and 'data' in data and data['data']:
+                    t += f'\n<b>Bereits angemeldet.\nQR-Code abrufen: /Q{g_id}</b>'
+                else:
+                    t += f'\n<b>Jetzt anmelden: /E{g_id}</b>'
         else:
             t += "<i>Konnte Veranstaltungsdaten nicht abrufen: " + error + "</i>"
 
@@ -108,8 +115,11 @@ def _printEvent(data):
             t += f'Zeitpunkt: <b>{time}</b>\n'
     max_mem = data['maxMemberCount']
     cur_mem = data['currentMemberCount']
-    free_mem = max(0, max_mem - cur_mem)
-    t += f'Plätze: <b>{free_mem}/{max_mem}</b> frei\n'
+    if max_mem:
+        free_mem = max(0, max_mem - cur_mem)
+        t += f'Plätze: <b>{free_mem}/{max_mem}</b> frei\n'
+    else:
+        t += f'Plätze: <b>{cur_mem}/♾</b> belegt\n'
     return t
 
 
@@ -163,7 +173,7 @@ def findGroup(redis, login_data, name):
                 url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
                 if len(matches) == 1:
                     #t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
-                    t.append(_printGroup(
+                    t.append(printGroup(
                         redis=redis,
                         login_data=login_data,
                         group=g,
@@ -225,15 +235,31 @@ def next_signup_field(signup_info):
     else:
         return None
 
-def get_field_info(field):
+def get_field_info(field, cancel_markup):
     markup = [[]]
     name = field["name"]
     if field['type'] == 'custom':
         markup = [[opt['id'] for opt in field['options']]]
         msg = f'<b>Wähle {name}</b>\n'
     elif field['type'] == 'comment':
-        markup = [['Kein Kommentar']]
+        markup = [['Kein Kommentar', cancel_markup]]
         msg = f'<b>Ein Kommentar? ({name})</b>'
+    elif field['type'] == 'person':
+        markup = [['Keine Angabe', cancel_markup]]
+        msg = f'<b>Bitte gib "{name}" an:</b>'
     else:
         msg = f'Unbekannter Feldtyp: {field["type"]}\n'
     return msg, markup
+
+
+def get_qrcode(redis, login_data, group_id):
+    p_id = int(login_data['personid'])
+    (error, data) = getAjaxResponse(redis,
+                                    f'groups/{group_id}/qrcodecheckin/{p_id}/pdf',
+                                    login_data=login_data,
+                                    isAjax=False,
+                                    timeout=None)
+    url = None
+    if data and 'data' in data and data['data'] and 'url' in data['data'] and data['data']['url']:
+        url = data['data']['url']
+    return url
