@@ -1,17 +1,23 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import locale, traceback
+import locale
 import os
+import pickle
+import traceback
 from datetime import datetime, timezone
 from io import BytesIO
-from operator import attrgetter, itemgetter
 from textwrap import indent
-from time import sleep
 
-import redis, json, re
+import json
+import re
+import redis
+import requests
+
+from PIL import Image
+from pyzbar.pyzbar import decode
+from pyzbar.wrapper import ZBarSymbol
+
 from telegram.utils.request import Request
-
-from church.CalendarBookingParser import CalendarBookingParser
 from church.birthdays import parseGeburtstage
 from church.bot import MQBot
 from church.calendar import parseCalendarByTime, parseCalendarByText
@@ -21,6 +27,7 @@ from church.utils import get_user_login_key, getAjaxResponse
 
 locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
+
 import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, Filters, MessageHandler, messagequeue as mq
@@ -28,7 +35,7 @@ from church import utils
 from church import songs, groups
 
 utils.logging.basicConfig(level=utils.logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(mesparseGeburtstagesage)s')
+                          format='%(asctime)s - %(name)s - %(levelname)s - %(mesparseGeburtstagesage)s')
 
 logger = utils.logging.getLogger(__name__)
 
@@ -38,7 +45,6 @@ r = redis.Redis(
     db=int(os.environ.get('REDIS_DB', 0)))
 r.set_response_callback('HGET', json.loads)
 
-
 main_url = os.environ.get('CHURCH_URL', 'https://feg-karlsruhe.church.tools/')
 
 MARKUP_ROOMS = '🏠 Räume'
@@ -47,20 +53,27 @@ MARKUP_BIRTHDAYS = u'\U0001F382 Geburtstage'
 MARKUP_PEOPLE = u'\U0001F464 Personen'
 MARKUP_GROUPS = u'\U0001F465 Gruppen'
 MARKUP_SONGS = u'\U0001F3BC Lieder'
+MARKUP_EVENTS = '\U0001F465 Veranstaltungen (Beta)'
 
 MARKUP_PC = u'💻 PC'
 MARKUP_PHONE = u'\U0001F4F1 Handy'
 
+MARKUP_SIGNUP_YES = u'✅ Anmelden'
+MARKUP_SIGNUP_NO = u'❌ Abbrechen'
+
 def _getMarkup():
     custom_keyboard = [[MARKUP_ROOMS,
                         MARKUP_CALENDAR,
-                       MARKUP_BIRTHDAYS],
-                       [MARKUP_PEOPLE, MARKUP_SONGS, MARKUP_GROUPS]]
+                        MARKUP_BIRTHDAYS],
+                       [MARKUP_PEOPLE, MARKUP_SONGS, MARKUP_GROUPS],
+                       [MARKUP_EVENTS]]
     return ReplyKeyboardMarkup(custom_keyboard)
+
 
 def send_message(bot, chat_id, text, parse_mode, reply_markup):
     try:
-        bot.send_message(chat_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup, disable_web_page_preview=True)
+        bot.send_message(chat_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup,
+                         disable_web_page_preview=True)
     except Exception as e:
         logger.error(f"Sending Message as {parse_mode} failed!\n{text}")
         logger.error(e)
@@ -71,15 +84,16 @@ def person(redis, bot, update, text, reply_markup, login_data, contact=False):
         res = searchPerson(redis, login_data, text)
         logger.debug(res)
         if contact and 'contact' in res:
-             bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)
+            bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)
         else:
             if 'photo_raw' in res:
                 try:
-                  bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']), caption=res['msg'],
-                                 parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
+                    bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']), caption=res['msg'],
+                                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
                 except Exception as e:
-                  res['msg'] += f'\n<i>Couldn\'t send photo :(\nYou can open it </i><a href="{res["photo_url"]}">here</a>.'
-                  send_message(bot, update.effective_chat.id, res['msg'], telegram.ParseMode.HTML, reply_markup)
+                    res[
+                        'msg'] += f'\n<i>Couldn\'t send photo :(\nYou can open it </i><a href="{res["photo_url"]}">here</a>.'
+                    send_message(bot, update.effective_chat.id, res['msg'], telegram.ParseMode.HTML, reply_markup)
             else:
                 send_message(bot, update.effective_chat.id, res['msg'], telegram.ParseMode.HTML, reply_markup)
     except Exception as e:
@@ -122,7 +136,9 @@ def group(redis, bot, update, text, reply_markup, login_data):
     for msg in messages:
         send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
 
-def message(bot, update):
+
+def message(update, context):
+    bot = context.bot
     user_id = update.message.from_user.id
     login_key = get_user_login_key(user_id)
     login_data_str = r.get(login_key)
@@ -138,21 +154,28 @@ def message(bot, update):
                 msg = f'Geh auf die <a href="{main_url}">Webseite von Churchtools</a>\n.' \
                       "Log dich dort ein, dann\n(1) rechts oben auf deinen Namen/Bild->ChurchTools App:\n" \
                       "(2) Lange auf den blauen Link klicken, URL <b>kopieren</b> und hier als Nachricht schicken\n" \
+                      "Falls das nicht geht, kannst du auch die PC-Variante probieren\n" \
                       "Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie"
                 bot.send_photo(update.message.chat_id, photo=f, caption=msg,
                                parse_mode=telegram.ParseMode.HTML, reply_markup=login_markup)
-        else: #PC
+        else:  # PC
             with open('church/login-help-pc.png', 'rb') as f:
                 msg = f'Geh auf die <a href="{main_url}">Webseite von Churchtools</a>\n.' \
-                      "Log dich dort ein, dann\n(1) Namen->ChurchTools App:\n" \
-                      "(2) Rechts-klick auf QR-Code wie im Bild, Bild öffnen, dann nochmal Rechts-klick-><b>kopieren</b>\n" \
-                      "Dann hier als Photo an den Bot schicken (einfach STRG+V im Textfeld)\n" \
-                      "Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie"
+                      'Log dich dort ein, dann\n(1) Namen->ChurchTools App:\n' \
+                      'Dann hast du drei Möglichkeiten:\n' \
+                      '(2a) Rechts-klick auf QR-Code wie im Bild, Bild öffnen, dann nochmal ' \
+                      'Rechts-klick-><b>kopieren</b>\n' \
+                      '(2b) Mach das Fenster klein und mach einen Screenshot (mit der "Drucken"-Taste).\n' \
+                      '(2c) Mach mit deinem Handy ein Photo vom QR-Code.\n' \
+                      '(3) Dann hier als Photo an den Bot schicken (am PC einfach STRG+V im Textfeld).\n\n' \
+                      'Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie'
                 bot.send_photo(update.message.chat_id, photo=f, caption=msg,
                                parse_mode=telegram.ParseMode.HTML, reply_markup=login_markup)
         return
     elif not text.startswith('churchtools://'):
-        send_message(bot, update.message.chat_id, "Willkommen beim inoffiziellen ChurchTools-Bot!\nZuerst musst du dich einloggen.\nWas benutzt du gerade?", None, reply_markup=login_markup)
+        send_message(bot, update.message.chat_id,
+                     "Willkommen beim inoffiziellen ChurchTools-Bot!\nZuerst musst du dich einloggen.\nWas benutzt du gerade?",
+                     None, reply_markup=login_markup)
         return
 
     mode_key = f'{user_id}:mode'
@@ -179,7 +202,8 @@ def message(bot, update):
                         send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
                 elif text == 'Suche':
                     r.set(mode_key, 'calendar_search')
-                    send_message(bot, update.message.chat_id, "Gib den Namen des Kalendereintrags (oder einen Teil davon ein):",
+                    send_message(bot, update.message.chat_id,
+                                 "Gib den Namen des Kalendereintrags (oder einen Teil davon ein):",
                                  None,
                                  empty_markup)
             except Exception as e:
@@ -223,12 +247,105 @@ def message(bot, update):
                 msg = f"Failed!\nException: {eMsg}"
                 logger.error(msg)
                 send_message(bot, update.message.chat_id, msg, None, reply_markup)
+        elif mode == 'signup':
+            p_id = int(login_data['personid'])
+            signup_key = groups.get_signup_key(p_id)
+            signup_info = utils.loadCache(r, signup_key)
+            token = signup_info['token']
+            g_id = signup_info['group']
+
+            if text in [MARKUP_SIGNUP_YES, MARKUP_SIGNUP_NO]:
+                r.delete(signup_key)
+                if text == MARKUP_SIGNUP_YES:
+                    # Signup
+                    form = []
+                    for field in signup_info['form']:
+                        type = field['type']
+                        value = field['value']
+                        if type == 'comment' and value == '':
+                            value = None
+                        form.append({
+                            'id': str(field['id']),
+                            'type': type,
+                            'value': value,
+                        })
+                    params = {
+                        'token': token,
+                        'forms': [
+                            {
+                                "personId": p_id,
+                                "form": form
+                            }
+                        ]
+                    }
+                    (error, data) = getAjaxResponse(r,
+                                                    f'publicgroups/{g_id}/signup',
+                                                    login_data=login_data,
+                                                    isAjax=False,
+                                                    **params,
+                                                    timeout=None)
+                    if not data:
+                        send_message(bot, update.message.chat_id,
+                                     "<b>Anmeldung fehlgeschlagen! Fehler:\n</b>" + error,
+                                     telegram.ParseMode.HTML, reply_markup)
+                    elif data and 'translatedMessage' in data and data['translatedMessage']:
+                        send_message(bot, update.message.chat_id, "<b>Anmeldung fehlgeschlagen! Fehler:\n</b>" + data['translatedMessage'],
+                                     telegram.ParseMode.HTML, reply_markup)
+                    else:
+                        send_message(bot, update.message.chat_id, "<b>Erfolgreich angemeldet!</b>",
+                                     telegram.ParseMode.HTML, reply_markup)
+                        url = groups.get_qrcode(r, login_data, g_id)
+                        if url:
+                            try:
+                                bot.send_photo(update.effective_chat.id, photo=url,
+                                               caption="QR-Code fürs Check-In",
+                                               parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                                               timeout=30)
+                            except Exception as e:
+                                send_message(bot, update.message.chat_id,
+                                             "<i>Konnte QR-Code nicht senden :(</i>\n" + e,
+                                             telegram.ParseMode.HTML,
+                                             reply_markup)
+                        else:
+                            send_message(bot, update.message.chat_id,
+                                         "<i>Konnte QR-Code nicht abrufen :(</i>\n" + error,
+                                         telegram.ParseMode.HTML,
+                                         reply_markup)
+                else:
+                    send_message(bot, update.message.chat_id, "<b>Anmeldung abgebrochen</b>", telegram.ParseMode.HTML,
+                                 reply_markup)
+            else:
+                field = groups.next_signup_field(signup_info)
+                if field:
+                    if field['type'] == 'comment' and text == 'Kein Kommentar' or \
+                       field['type'] == 'person' and text == 'Keine Angabe' :
+                        field['value'] = ''
+                    else:
+                        field['value'] = text
+                new_field = groups.next_signup_field(signup_info)
+                if new_field:
+                    msg, field_markup = groups.get_field_info(new_field, MARKUP_SIGNUP_NO)
+                    markup = ReplyKeyboardMarkup(field_markup)
+                else:
+                    msg = "<pre>Anmeldedaten</pre>\n"
+                    msg += f'Name: {signup_info["person"]}\n'
+                    for field in signup_info['form']:
+                        msg += f'{field["name"]}: {field["value"]}\n'
+                    msg += "<b>Jetzt anmelden?</b>"
+                    markup = ReplyKeyboardMarkup([[MARKUP_SIGNUP_YES, MARKUP_SIGNUP_NO]])
+                r.set(signup_key, pickle.dumps(signup_info))
+                r.set(mode_key, 'signup')
+                send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, markup)
+
+
     else:  # no special mode
         m1 = re.match('([A-Za-z0-9äöü ]+): ([A-Za-zäöü]+)', text)
         m2 = re.match('/dl_([0-9]+)_([0-9]+)', text)
         mPerson = re.match('/P([0-9]+)', text)
         mPersonContact = re.match('/C([0-9]+)', text)
         mGroup = re.match('/G([0-9]+)', text)
+        mEvent = re.match('/E([0-9]+)', text)
+        mQR    = re.match('/Q([0-9]+)', text)
         mAgenda = re.match('/A([0-9]+)', text)
         mSong1 = re.match('/S([0-9]+)$', text)
         mSong2 = re.match('/S([0-9]+)_([0-9]+)', text)
@@ -267,7 +384,7 @@ def message(bot, update):
                             elif res['type'] == 'msg':
                                 for msg in res['msg']:
                                     send_message(bot, update.message.chat_id, msg, None, reply_markup)
-                            else: # file
+                            else:  # file
                                 send_message(bot, update.message.chat_id, res['file'], None, reply_markup)
                         else:
                             send_message(bot, update.message.chat_id, res, None, reply_markup)
@@ -284,6 +401,101 @@ def message(bot, update):
             person(r, bot, update, text, reply_markup, login_data, contact=True)
         elif mGroup:
             group(r, bot, update, text, reply_markup, login_data=login_data)
+        elif mEvent:
+            g_id = mEvent.group(1)
+            p_id = int(login_data['personid'])
+            (error, data) = getAjaxResponse(r,
+                                            f'publicgroups/{g_id}/token',
+                                            login_data=login_data,
+                                            isAjax=False,
+                                            personId=p_id,
+                                            clicked=[p_id],
+                                            timeout=None)
+            # TODO: WTH?
+            if data and 'data' in data and 'token' in data['data'] and data['data']['token']:
+                token = data['data']['token']
+                signup_key = groups.get_signup_key(p_id)
+                signup_info = {
+                    'token': token,
+                    'group': g_id
+                }
+
+                (error, data) = getAjaxResponse(r,
+                                                f'publicgroups/{g_id}/form?token={token}',
+                                                login_data=login_data,
+                                                isAjax=False,
+                                                timeout=None)
+                if data and 'data' in data and 'group' in data['data']:
+                    # TODO: WTH?
+                    data = data['data']
+                    cur_group = data['group']
+                    msg = f'Anmeldung zu: <b>{cur_group["name"]}</b>\n'
+                    msg += groups._printEvent(cur_group) + '\n'
+                    try:
+                        markup = [MARKUP_SIGNUP_YES, MARKUP_SIGNUP_NO]
+                        signup_form = []
+                        if 'signUpPersons' in data and data['signUpPersons']:
+                            cur_person = data['signUpPersons'][0]['person']
+                            signup_info['person'] = cur_person["title"]
+                            # msg += f'{cur_person["title"]} anmelden?\n'
+                        if 'form' in data:
+                            form = data['form']
+                            for field in form:
+                                signup_form.append({
+                                    'id': field['id'],
+                                    'name': field['name'],
+                                    'options': field['options'],
+                                    'type': field['type'],
+                                    'value': None,
+                                })
+                                #msg += "Wie möchtest du dich anmelden?\n"
+                                #signup_info['form'] = {}
+                                #for option in sitzplatz['options']:
+                                #    msg += f'<b>Für {option["name"]} anmelden: /E{g_id}_{option["id"]}'
+                            signup_info['form'] = signup_form
+
+                        field = groups.next_signup_field(signup_info)
+                        if field:
+                            field_msg, field_markup = groups.get_field_info(field, MARKUP_SIGNUP_NO)
+                            msg += field_msg
+                            markup = ReplyKeyboardMarkup(field_markup)
+                        r.set(signup_key, pickle.dumps(signup_info))
+                        r.set(mode_key, 'signup')
+                        send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, markup)
+                    except Exception as e:
+                        msg += "<i>Leider ist folgender Fehler aufgetreten:\n" + str(e)
+                        send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
+                else:
+                    msg = "<i>Konnte Anmelde-Informationen nicht abrufen"
+                    if error:
+                        msg += ":\n" + error
+                    msg += "</i>"
+                    send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
+            else:
+                msg = "<i>Konnte Anmelde-Token nicht abrufen"
+                if error:
+                    msg += ":\n" + error
+                msg += "</i>"
+                send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
+        elif mQR:
+            g_id = mQR.group(1)
+            url = groups.get_qrcode(r, login_data, g_id)
+            if url:
+                try:
+                    bot.send_document(update.effective_chat.id, document=url,
+                                   caption="QR-Code fürs Check-In",
+                                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                                   timeout=30)
+                except Exception as e:
+                    send_message(bot, update.message.chat_id,
+                                 "<i>Konnte QR-Code nicht senden :(</i>\n" + str(e),
+                                 telegram.ParseMode.HTML,
+                                 reply_markup)
+            else:
+                send_message(bot, update.message.chat_id,
+                             "<i>Konnte QR-Code nicht abrufen :(</i>\n",
+                             telegram.ParseMode.HTML,
+                             reply_markup)
         elif mSong1 or mSong2:
             try:
                 arrId = None
@@ -304,23 +516,25 @@ def message(bot, update):
             a_id = mAgenda.group(1)
             try:
                 (error, data) = getAjaxResponse(r, f'events/{a_id}/agenda', login_data=login_data, isAjax=False,
-                                                timeout=1800)
+                                                timeout=600)
                 if 'data' in data:
                     data = data['data']
 
                     msg = ''
                     try:
                         (error, masterData) = getAjaxResponse(r, "service", "getMasterData", login_data=login_data,
-                                                              timeout=7 * 24 * 3600)
+                                                              timeout=None)
 
-                        (error, eventData) = getAjaxResponse(r, "service", "getAllEventData", login_data=login_data, timeout=1800)
+                        (error, eventData) = getAjaxResponse(r, "service", "getAllEventData", login_data=login_data,
+                                                             timeout=600)
                         event = eventData[a_id]
 
                         msg = f'<b>{event["bezeichnung"]}</b>\n'
 
                         masterService = masterData['service']
                         masterServiceGroups = masterData['servicegroup']
-                        servicegroups = [None] * max([int(masterServiceGroups[x]['sortkey']) for x in masterServiceGroups])
+                        servicegroups = [None] * max(
+                            [int(masterServiceGroups[x]['sortkey']) for x in masterServiceGroups])
                         for service in event['services']:
                             if service['name']:
                                 name = service['name']
@@ -382,7 +596,7 @@ def message(bot, update):
                             elif isBeforeEvent:
                                 part += '</i>'
                             msg += part + "\n"
-                else: # no data
+                else:  # no data
                     msg = '<i>Für diese Veranstaltung gibt es keinen Ablaufplan</i>'
                 send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
             except Exception as e:
@@ -409,13 +623,82 @@ def message(bot, update):
                 send_message(bot, update.message.chat_id, msg, None, reply_markup)
         elif text == MARKUP_SONGS:
             r.set(mode_key, 'song')
-            send_message(bot, update.message.chat_id, "Gib den Namen/Author (oder einen Teil davon ein):", None, empty_markup)
+            send_message(bot, update.message.chat_id, "Gib den Namen/Author (oder einen Teil davon ein):", None,
+                         empty_markup)
         elif text == MARKUP_PEOPLE:
             r.set(mode_key, 'person')
-            send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein) oder eine Telefonnumer ein:", None, empty_markup)
+            send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein) oder eine Telefonnumer ein:",
+                         None, empty_markup)
         elif text == MARKUP_GROUPS:
             r.set(mode_key, 'group')
             send_message(bot, update.message.chat_id, "Gib den Namen (oder einen Teil ein):", None, empty_markup)
+        elif text == MARKUP_EVENTS:
+            (errorBlock, blockData) = getAjaxResponse(r, "home", "getBlockData", login_data=login_data,
+                                                      timeout=None)
+            (errorMaster, masterData) = getAjaxResponse(r, "db", "getMasterData", login_data=login_data,
+                                                        timeout=None)
+            (errorPerson, persons) = getAjaxResponse(r, "db", "getAllPersonData", login_data=login_data,
+                                                     timeout=24 * 3600)
+            grouplist = masterData['groups']
+            if blockData and masterData and persons:
+                try:
+                    membership_data = blockData['blocks']['managemymembership']['data']
+                    availableEventIDs = membership_data['chosable']
+                    activeEventIDs = membership_data['member']
+                    msg = '<b>Aktuelle Veranstaltungen</b>\n'
+                    cur_groups = []
+                    msg += '<pre>Verfügbare</pre>\n'
+                    for eventID in reversed(availableEventIDs):
+                        cur_group = grouplist[eventID]
+                        if 'gruppentyp_id' in cur_group and cur_group['gruppentyp_id'] == '4' \
+                                and ('treffzeit' in cur_group and cur_group['treffzeit'] or \
+                                     'parents' in cur_group and '655' in cur_group['parents'] or \
+                                     'notiz' in cur_group and cur_group['notiz']) \
+                                and not any(cur_group["bezeichnung"].startswith(x) for x in ['Abo ', 'Antrag ', 'Zugang zu ChurchTools']):
+                            #msg += f'{cur_group["bezeichnung"]} /G{cur_group["id"]}\n'
+                            cur_groups.append(cur_group)
+                    if len(cur_groups) == 0:
+                        msg += "<i>Keine Veranstaltungen gefunden</i>\n"
+                    else:
+                        for cur_group in cur_groups:
+                            msg += groups.printGroup(redis=r,
+                                                     login_data=login_data,
+                                                     group=cur_group,
+                                                     persons=persons,
+                                                     masterData=masterData,
+                                                     list=len(cur_groups) > 1,
+                                                     onlyName=len(cur_groups) > 2) + '\n'
+                    msg += '\n<pre>Angemeldete</pre>\n'
+                    numActive = 0
+                    for eventID in reversed(activeEventIDs):
+                        cur_group = grouplist[eventID]
+                        msg += groups.printGroup(redis=r,
+                                                 login_data=login_data,
+                                                 group=cur_group,
+                                                 persons=persons,
+                                                 masterData=masterData,
+                                                 list=True,
+                                                 onlyName=True) + '\n'
+                        numActive += 1
+                    if numActive == 0:
+                        msg += "<i>Keine Veranstaltungen gefunden</i>\n"
+                    send_message(bot, update.message.chat_id, msg, telegram.ParseMode.HTML, reply_markup)
+                except Exception as e:
+                    msg = f"Failed!\nException: {e}"
+                    logger.error(msg)
+                    send_message(bot, update.message.chat_id, msg, None, reply_markup)
+            else:
+                if errorMaster:
+                    send_message(bot, update.message.chat_id, "Konnte Master-Daten nicht abrufen:\n" + errorMaster,
+                                 None, reply_markup)
+                elif errorBlock:
+                    send_message(bot, update.message.chat_id, "Konnte Block-Daten nicht abrufen:\n" + errorBlock,
+                                 None, reply_markup)
+                elif errorPerson:
+                    send_message(bot, update.message.chat_id, "Konnte Personen-Daten nicht abrufen:\n" + errorPerson,
+                                 None, reply_markup)
+                else:
+                    send_message(bot, update.message.chat_id, "Konnte Daten nicht abrufen", None, reply_markup)
         else:  # search for person #re.match('\+?[0-9]+', text) is not None and
             m = re.match("churchtools://login\?instanceurl=([^&]+)&loginstring=([^&]+)&personid=([0-9]+)", text)
             if m:
@@ -439,7 +722,8 @@ def login(bot, update, login_data):
         if success:
             r.set(login_key, json.dumps(login_data))
             send_message(bot, update.message.chat_id,
-                         "Erfolgreich eingeloggt!\nDu kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen.", None, reply_markup)
+                         "Erfolgreich eingeloggt!\nDu kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen.",
+                         None, reply_markup)
         else:
             r.delete(login_key)
             send_message(bot, update.message.chat_id,
@@ -451,16 +735,14 @@ def login(bot, update, login_data):
                      reply_markup)
 
 
-def photo(bot, update):
+def photo(update, context):
     # try:
-    from pyzbar.pyzbar import decode
-    from PIL import Image
-    import requests
+    bot = context.bot
     ps = update.message.photo
     if len(ps) >= 1:
-        url = bot.get_file(ps[0].file_id)['file_path']
+        url = context.bot.get_file(ps[0].file_id)['file_path']
         response = requests.get(url)
-        data = decode(Image.open(BytesIO(response.content)))
+        data = decode(Image.open(BytesIO(response.content)), symbols=[ZBarSymbol.QRCODE])
         if len(data) >= 1:
             data = json.loads(data[0].data)
             login_data = {
@@ -478,6 +760,7 @@ def photo(bot, update):
     #
     # except
 
+
 if __name__ == '__main__':
     logger.info("Telegram bot starting..")
 
@@ -491,7 +774,7 @@ if __name__ == '__main__':
     # updater.dispatcher.add_handler(CommandHandler('start', start))
 
     updater.dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, message))
-    updater.dispatcher.add_handler(MessageHandler(Filters.photo, photo))
+    updater.dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, photo))
     # updater.dispatcher.add_handler(CallbackQueryHandler(confirm_value))
 
     # updater.dispatcher.add_handler()

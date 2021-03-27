@@ -26,7 +26,7 @@ def _print_arrangements(song_id, j, arrangement_id=None):
     return ret
 
 def byID(redis, login_data, song_id, arrangement_id=None):
-    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=7 * 24 * 3600)
+    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if not data or 'songs' not in data:
         return False, error
     else:
@@ -40,7 +40,7 @@ def byID(redis, login_data, song_id, arrangement_id=None):
     return False, 'Dieses Lied wurde nicht gefunden.'
 
 def search(redis, login_data, name):
-    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=7 * 24 * 3600)
+    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if not data or 'songs' not in data:
         return False, error
     else:
@@ -100,7 +100,7 @@ def _print_song(song, login_data, short=False, arrangement_id=None):
 
 
 def download(redis, login_data, song_id, file_id):
-    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=7 * 24 * 3600)
+    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if error or not data or 'songs' not in data:
         return {'msg': error}
     else:

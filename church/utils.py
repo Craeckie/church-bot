@@ -1,13 +1,10 @@
 import json
 import logging
 import pickle
-import shutil
 from datetime import datetime
 from io import BytesIO
-from urllib.parse import urlparse, urljoin
-
+from urllib.parse import urljoin
 import requests
-from urllib3.exceptions import NewConnectionError
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.DEBUG)
@@ -28,20 +25,28 @@ logger = logging.getLogger(__name__)
 def cc_func(module, func, cookies, login_data, params={}):
     url = urljoin(login_data['url'], f'?q=church{module}/ajax')
     data = {'func': func, **params}
-    response = requests.post(url, data, cookies=cookies, timeout=30)
+    response = requests.post(url, data=data, cookies=cookies, timeout=30)
     if json:
         return response.json()
     else:
         return response
 
 
-def cc_api(path, cookies, login_data, json=True):
+def cc_api(path, cookies, login_data, returnJson=True, params=None):
     url = urljoin(urljoin(login_data['url'], 'api/'), path)
-    response = requests.get(url, cookies=cookies, timeout=30)
-    if json:
+    if params:
+        response = requests.post(url, json=params, cookies=cookies, timeout=30)
+    else:
+        response = requests.get(url, cookies=cookies, timeout=30)
+    if response.status_code != 200:
         return {
-            'status': 'success',
-            'data': response.json()
+            "status": "success",
+            "message": f'{response.status_code}: {response.reason}\n' + response.text
+        }
+    elif returnJson:
+        return {
+            "status": "success",
+            "data": response.json()
         }
     else:
         return response
@@ -83,7 +88,7 @@ def login(redis, login_data=None, updateCache=False, login_token=False):
                 redis.delete(get_user_login_key(login_data['telegramid']))
                 return False, 'Login fehlgeschlagen, versuchs es mit einem neuen Link.'
             else: # get new login key & cookies using login token
-                data = cc_api(f'persons/{login_data["personid"]}/logintoken', cookies=cookies, login_data=login_data, json=True)
+                data = cc_api(f'persons/{login_data["personid"]}/logintoken', cookies=cookies, login_data=login_data, returnJson=True)
                 if data['status'] == 'success':
                     inner_data = data['data']
                     # cookies = resp.cookies.get_dict()
@@ -94,7 +99,7 @@ def login(redis, login_data=None, updateCache=False, login_token=False):
         else: # get new cookies using login key
             try:
                 token_url = f'whoami?login_token={login_key}&user_id={login_data["personid"]}'
-                data = cc_api(token_url, cookies, login_data=login_data, json=True)
+                data = cc_api(token_url, cookies, login_data=login_data, returnJson=True)
                 if data['status'] == 'success':
                     logger.info(data)
                     redis.set(key, pickle.dumps(cookies.get_dict()))
@@ -156,11 +161,11 @@ def getPersonLink(login_data, id):
     return f'<a href="{url}">'
 
 
-def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600 * 2, additionalCacheKey=None, **params):
+def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600, additionalCacheKey=None, **params):
     key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
     resp_str = redis.get(key)
     resp = json.loads(resp_str.decode('utf-8')) if resp_str else None
-    if not resp:
+    if not resp or not timeout:
         relogin = False
         while True:
 
@@ -171,7 +176,7 @@ def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600 * 2, add
                 if isAjax:
                     resp = cc_func(*args, cookies=cookies, login_data=login_data, params=params)
                 else:
-                    resp = cc_api(*args, cookies=cookies, login_data=login_data)
+                    resp = cc_api(*args, cookies=cookies, login_data=login_data, params=params)
             except Exception as e:
                 resp_str = redis.get(key + "_latest")
                 if resp_str:
@@ -189,9 +194,9 @@ def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600 * 2, add
                 relogin = True
         if resp['status'] != 'success' or 'data' not in resp:
             if 'message' in resp:
-                return "Error: %s" % resp['message'], None
+                return resp['message'], None
             else:
-                return "Error: %s" % str(resp), None
+                return str(resp), None
         else:
             resp_str = json.dumps(resp)
             redis.set(key, resp_str, ex=timeout)
