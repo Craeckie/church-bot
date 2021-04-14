@@ -4,6 +4,7 @@ This is a bot for [ChurchTools](https://www.church.tools/en/home) written in Pyt
 [Try it out on Telegram!](https://t.me/fegka_bot)
 
 # Features
+- :busts_in_silhouette: **New**: Easily sign up for **events** and get your QR Code to check in (currently Beta)
 - :bust_in_silhouette: Information about **people**, search using name/phone number
 - :church: Information about current **room reservations**
 - :calendar: Information about current **calendar entries**
