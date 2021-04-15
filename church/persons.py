@@ -253,6 +253,7 @@ def searchPerson(redis, login_data, text):
             return res
 
     if fullMatches:
+        res['success'] = True
         if len(fullMatches) == 1:
             photo_url, photo_raw = _getPhoto(redis, login_data, fullMatches[0])
             if photo_url:
@@ -263,12 +264,12 @@ def searchPerson(redis, login_data, text):
             contact = _getContact(fullMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
+            res.update(_getPersonInfo(redis, login_data, fullMatches[0]))
+            res['success'] = True
         else:
-            res = {
-                'success': True,
-                'msg': _printPersons(redis, login_data, fullMatches)
-            }
+            res['msg'] = _printPersons(redis, login_data, fullMatches)
     elif partialMatches:
+        res['success'] = True
         if len(partialMatches) == 1:
             photo_url, photo_raw = _getPhoto(redis, login_data, partialMatches[0])
             if photo_url:
@@ -279,11 +280,9 @@ def searchPerson(redis, login_data, text):
             contact = _getContact(partialMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
+            res.update(_getPersonInfo(redis, login_data, partialMatches[0]))
         else:
-            res = {
-                'success': True,
-                'msg': _printPersons(redis, login_data, partialMatches)
-            }
+            res['msg'] = _printPersons(redis, login_data, partialMatches)
     if error:
         res['msg'] += f'\n<i>{error}</i>'
     return res
