@@ -161,22 +161,32 @@ def message(update, context):
                 bot.send_photo(update.message.chat_id, photo=f, caption=msg,
                                parse_mode=telegram.ParseMode.HTML, reply_markup=login_markup)
         else:  # PC
-            with open('church/login-help-pc.png', 'rb') as f:
-                msg = f'Geh auf die <a href="{main_url}">Webseite von Churchtools</a>\n.' \
-                      'Log dich dort ein, dann\n(1) Namen->ChurchTools App:\n' \
-                      'Dann hast du drei Möglichkeiten:\n' \
-                      '(2a) Rechts-klick auf QR-Code wie im Bild, Bild öffnen, dann nochmal ' \
-                      'Rechts-klick-><b>kopieren</b>\n' \
-                      '(2b) Mach das Fenster klein und mach einen Screenshot (mit der "Drucken"-Taste).\n' \
-                      '(2c) Mach mit deinem Handy ein Photo vom QR-Code.\n' \
-                      '(3) Dann hier als Photo an den Bot schicken (am PC einfach STRG+V im Textfeld).\n\n' \
+            with open('church/QR-Photo.jpg', 'rb') as f:
+                msg = f'Zum Einloggen brauchst du den QR-Code für die ChurchTools-App. Die ChurchTools-App selber brauchst du nicht.' \
+                      f'Geh auf die <a href="{main_url}">Webseite von Churchtools</a>.\n' \
+                      'Log dich dort ein, dann geh auf Namen->ChurchTools App.\n' \
+                      'Dann hast du zwei Möglichkeiten:\n' \
+                      '(2a) Oder: Mach das Fenster klein und mach einen Screenshot (mit der "Druck"-Taste).\n' \
+                      '(2b) Oder: Mach mit deinem Handy ein Photo vom QR-Code.\n' \
+                      '(3) Dann sende hier als Nachricht das Photo vom QR-Code.\n\n' \
                       'Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie'
                 bot.send_photo(update.message.chat_id, photo=f, caption=msg,
                                parse_mode=telegram.ParseMode.HTML, reply_markup=login_markup)
         return
+    elif text.strip().startswith('{') and text.strip().endswith('}'):
+        login_data = parseQRData(data=text.strip(), user_id=update.message.from_user.id)
+        if login_data:
+            login(bot, update, login_data)
+            return
+        else:
+            send_message(bot, update.message.chat_id,
+                         "Die Daten scheinen ungültig zu sein. Sende am besten ein Foto vom QR-Code.",
+                         None, reply_markup=login_markup)
     elif not text.startswith('churchtools://'):
         send_message(bot, update.message.chat_id,
-                     "Willkommen beim inoffiziellen ChurchTools-Bot!\nZuerst musst du dich einloggen.\nWas benutzt du gerade?",
+                     "Willkommen beim inoffiziellen ChurchTools-Bot!\n"
+                     "Zuerst musst du dich bei ChurchTools einloggen, das musst du nur einmal machen.\n"
+                     "Was benutzt du gerade?",
                      None, reply_markup=login_markup)
         return
 
@@ -723,9 +733,12 @@ def login(bot, update, login_data):
         success, cookies = ChurchToolsRequests.login(r, login_data, updateCache=True, login_token=True)
         if success:
             r.set(login_key, json.dumps(login_data))
-            send_message(bot, update.message.chat_id,
-                         "Erfolgreich eingeloggt!\nDu kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen.",
-                         None, reply_markup)
+            msg = "Erfolgreich eingeloggt!\n" \
+                  "Du kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen." \
+                  "Falls da keine Buttons sind, musst den im Bild markierten Knopf drücken."
+            with open('church/logged-in.png', 'rb') as f:
+                bot.send_photo(update.message.chat_id, photo=f, caption=msg,
+                               parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
         else:
             r.delete(login_key)
             send_message(bot, update.message.chat_id,
@@ -742,25 +755,40 @@ def photo(update, context):
     bot = context.bot
     ps = update.message.photo
     if len(ps) >= 1:
-        url = context.bot.get_file(ps[0].file_id)['file_path']
-        response = requests.get(url)
-        data = decode(Image.open(BytesIO(response.content)), symbols=[ZBarSymbol.QRCODE])
-        if len(data) >= 1:
-            data = json.loads(data[0].data)
-            login_data = {
-                'url': data['instanceUrl'],
-                'token': data['loginstring'],
-                'personid': data['personId'],
-                'telegramid': update.message.from_user.id,
-            }
-            login(bot, update, login_data)
-            return
+        for p in reversed(ps):
+            try:
+                file = context.bot.get_file(p.file_id)
+                file_data = BytesIO(file.download_as_bytearray())
+                data = decode(Image.open(file_data), symbols=[ZBarSymbol.QRCODE])
+                login_data = None
+                if len(data) >= 1:
+                    login_data = parseQRData(data[0].data, update.message.from_user.id)
+                if login_data:
+                    login(bot, update, login_data)
+                    return
+            except Exception as e:
+                pass
 
     send_message(bot, update.message.chat_id,
                  "Konnte keinen QR-Code finden.\nBitte erneut versuchen.", None,
                  reply_markup=_getMarkup())
     #
     # except
+
+
+def parseQRData(data, user_id):
+    login_data = None
+    try:
+        json_data = json.loads(data)
+        login_data = {
+            'url': json_data['instanceUrl'],
+            'token': json_data['loginstring'],
+            'personid': json_data['personId'],
+            'telegramid': user_id,
+        }
+    except:
+        pass
+    return login_data
 
 
 if __name__ == '__main__':
