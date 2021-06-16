@@ -27,26 +27,28 @@ def _printEntry(dict, key, description='', italic=False, bold=False):
 def printGroup(login_data, group, persons, masterData, list=False, onlyName=False):
     g_id = group['id']
     url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
-    t = f'<a href="{url}">'
-    t += f"{group['bezeichnung']}</a>"
+    parts = []
+    cur_part = f'<a href="{url}">'
+    cur_part += f"{group['bezeichnung']}</a>"
     if list:
-        t += f" /G{g_id}"
+        cur_part += f" /G{g_id}"
     if onlyName:
-        return t
+        return [cur_part]
     type = _getGroupType(masterData['groupTypes'], group['gruppentyp_id'])
-    t += "\n"
-    t += f"Typ: <b>{type}</b>\n"
-    t += _printEntry(group, description='Zeit: ', key='treffzeit', bold=True)
-    t += _printEntry(group, description='Max. Teilnehmer:', key='max_teilnehmer')
-    t += "\n"
+    cur_part += "\n"
+    cur_part += f"Typ: <b>{type}</b>\n"
+    cur_part += _printEntry(group, description='Zeit: ', key='treffzeit', bold=True)
+    cur_part += _printEntry(group, description='Max. Teilnehmer:', key='max_teilnehmer')
+    cur_part += "\n"
+    parts.append(cur_part)
 
-    description = _printEntry(group, key='notiz', italic=False)
-    description = re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', description)
-    if list and len(description) > 120:
-        description = description[:100] + "..."
-    t += description
+    cur_part = _printEntry(group, key='notiz', italic=False)
+    cur_part = re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', cur_part)
+    if list and len(cur_part) > 120:
+        cur_part = cur_part[:100] + "..."
+    parts.append(cur_part)
 
-    t += "\n<pre>Teilnehmer</pre>\n"
+    cur_part = "\n<pre>Teilnehmer</pre>\n"
     mem_count = 0
     for p_id in persons:
         p = persons[p_id]
@@ -55,17 +57,17 @@ def printGroup(login_data, group, persons, masterData, list=False, onlyName=Fals
             if g_id in p_groups:
                 p_group = p_groups[g_id]
                 typeStatus = masterData['grouptypeMemberstatus'][p_group['groupmemberstatus_id']]['bezeichnung']
-                t += _printPerson(redis, login_data, p, personList=True, onlyName=True,
-                                      additionalName=f'{typeStatus}') + '\n'
+                cur_part += _printPerson(login_data, p, personList=True, onlyName=True, additionalName=f'{typeStatus}') + '\n'
                 mem_count += 1
                 if list and mem_count >= 5 or mem_count > 100:
-                    t += "..."
+                    cur_part += "..."
                     break
     if mem_count == 0:
-        t += '<i>Keine Teilnehmer gefunden</i>\n'
+        cur_part += '<i>Keine Teilnehmer gefunden</i>\n'
+    parts.append(cur_part)
 
     if 'places' in group and group['places']:
-        t += "\n<pre>Treffpunkte</pre>\n"
+        cur_part = "\n<pre>Treffpunkte</pre>\n"
         places = ''
         for place in group['places']:
             if places:
@@ -75,35 +77,29 @@ def printGroup(login_data, group, persons, masterData, list=False, onlyName=Fals
                 city += f' ({place["district"]})'
             places += '\n'.join([info for info in [place['meetingby'], place['street'], city] if info])
             places += '\n'
-        t += places
+        parts.append(cur_part + places)
 
     # https://feg-karlsruhe.church.tools/api/publicgroups/1036
     if not list:
-        (error, data) = getAjaxResponse(redis,
-                                        f'publicgroups/{g_id}',
-                                        login_data=login_data,
-                                        isAjax=False,
-                                        timeout=600)
+        (error, data) = getAjaxResponse(f'publicgroups/{g_id}', login_data=login_data, isAjax=False, timeout=600)
         if data and 'data' in data:
             # TODO: WTH?
             data = data['data']
-            t += '\n<pre>Anmeldung</pre>\n'
-            t += _printEvent(data)
+            cur_part = '\n<pre>Anmeldung</pre>\n'
+            cur_part += _printEvent(data)
             if 'canSignUp' in data and data['canSignUp']:
                 p_id = int(login_data['personid'])
-                (error, data) = getAjaxResponse(redis,
-                                                f'groups/{g_id}/qrcodecheckin/{p_id}',
-                                                login_data=login_data,
-                                                isAjax=False,
-                                                timeout=None)
+                (error, data) = getAjaxResponse(f'groups/{g_id}/qrcodecheckin/{p_id}', login_data=login_data,
+                                                isAjax=False, timeout=None)
                 if data and 'data' in data and data['data']:
-                    t += f'\n<b>Bereits angemeldet.\nQR-Code abrufen: /Q{g_id}</b>'
+                    cur_part += f'\n<b>Bereits angemeldet.\nQR-Code abrufen: /Q{g_id}</b>'
                 else:
-                    t += f'\n<b>Jetzt anmelden: /E{g_id}</b>'
+                    cur_part += f'\n<b>Jetzt anmelden: /E{g_id}</b>'
         else:
-            t += "<i>Konnte Veranstaltungsdaten nicht abrufen: " + error + "</i>"
+            cur_part += "<i>Konnte Veranstaltungsdaten nicht abrufen: " + error + "</i>"
+        parts.append(cur_part)
 
-    return t
+    return parts
 
 
 def _printEvent(data):
@@ -179,14 +175,8 @@ def findGroup(login_data, name):
                 url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
                 if len(matches) == 1:
                     #t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
-                    t.append(printGroup(
-                        login_data=login_data,
-                        group=g,
-                        persons=persons,
-                        masterData=data,
-                        list=False,
-                        onlyName=False
-                        ))
+                    t += printGroup(login_data=login_data, group=g, persons=persons, masterData=data, list=False,
+                                        onlyName=False)
                     img_id = g['groupimage_id']
                     if img_id:
                         try:
