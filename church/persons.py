@@ -37,6 +37,7 @@ def _parseNumber(num):
 _keyNameMap = {
     'telefonhandy': 'Handy',
     'telefonprivat': 'Privat',
+    'telefongeschaeftlich': 'Geschäftlich',
     'email': 'E-Mail',
     'beruf': 'Beruf',
 }
@@ -77,7 +78,8 @@ def _printPerson(login_data, p, personList=False, onlyName=False, additionalName
     # Weitere Daten
     t += '\n'.join([f"{_keyNameMap[k]}: {p[k]}" for k in _keyNameMap.keys() if k in p])
 
-    t += f'\n\n<i>Kontakt speichern: </i>/C{p["id"]}'
+    if 'telefonhandy' in p or 'telefonprivat' in p:
+        t += f'\n\n<i>Kontakt speichern: </i>/C{p["id"]}'
     return t
 
 
@@ -211,7 +213,10 @@ def searchPerson(login_data, text):
                         continue
                     privat = _parseNumber(person['telefonprivat'])
                     handy = _parseNumber(person['telefonhandy'])
-                    if (privat and privat == cur) or (handy and handy == cur):
+                    geschäftlich = _parseNumber(person['telefongeschaeftlich'])
+                    if (privat and privat == cur) or \
+                        (handy and handy == cur) or \
+                        (geschäftlich and geschäftlich == cur):
                         logger.info(f"Found: {person}")
                         matches.append(person)
                     # elif handy:
