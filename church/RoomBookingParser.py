@@ -1,7 +1,8 @@
 import pickle
 
 from church.BookingParser import BookingParser
-from church.utils import getAjaxResponse, get_cache_key
+from church.ChurchToolsRequests import getAjaxResponse
+from church.utils import get_cache_key
 
 
 class RoomBookingParser(BookingParser):

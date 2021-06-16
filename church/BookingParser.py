@@ -5,7 +5,9 @@ from collections import namedtuple
 
 from dateutil.rrule import rruleset, rrule, DAILY, WEEKLY, MONTHLY, weekday, YEARLY
 
-from church.utils import getAjaxResponse, get_cache_key, logging
+from church.ChurchToolsRequests import getAjaxResponse, logging
+from church.utils import get_cache_key
+
 logger = logging.getLogger(__name__)
 
 

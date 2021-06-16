@@ -8,7 +8,7 @@ import requests
 import vobject
 from telegram import Contact
 
-from church.utils import getAjaxResponse, logger, getPersonLink
+from church.ChurchToolsRequests import getAjaxResponse, logger, getPersonLink
 
 
 def _parseNumber(num):

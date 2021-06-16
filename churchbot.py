@@ -18,12 +18,14 @@ from pyzbar.pyzbar import decode
 from pyzbar.wrapper import ZBarSymbol
 
 from telegram.utils.request import Request
+
+import church.utils
 from church.birthdays import parseGeburtstage
 from church.bot import MQBot
 from church.calendar import parseCalendarByTime, parseCalendarByText
 from church.persons import searchPerson
 from church.rooms import parseRaeumeByTime, parseRaeumeByText, room_markup
-from church.utils import get_user_login_key, getAjaxResponse
+from church.ChurchToolsRequests import get_user_login_key, getAjaxResponse
 
 locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
@@ -31,13 +33,13 @@ locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 import telegram
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Updater, Filters, MessageHandler, messagequeue as mq
-from church import utils
+from church import ChurchToolsRequests
 from church import songs, groups
 
-utils.logging.basicConfig(level=utils.logging.INFO,
-                          format='%(asctime)s - %(name)s - %(levelname)s - %(mesparseGeburtstagesage)s')
+ChurchToolsRequests.logging.basicConfig(level=ChurchToolsRequests.logging.INFO,
+                                        format='%(asctime)s - %(name)s - %(levelname)s - %(mesparseGeburtstagesage)s')
 
-logger = utils.logging.getLogger(__name__)
+logger = ChurchToolsRequests.logging.getLogger(__name__)
 
 r = redis.Redis(
     host=os.environ.get('REDIS_HOST', 'localhost'),
@@ -250,7 +252,7 @@ def message(update, context):
         elif mode == 'signup':
             p_id = int(login_data['personid'])
             signup_key = groups.get_signup_key(p_id)
-            signup_info = utils.loadCache(r, signup_key)
+            signup_info = church.utils.loadCache(r, signup_key)
             token = signup_info['token']
             g_id = signup_info['group']
 
@@ -375,7 +377,7 @@ def message(update, context):
                 if res and 'msg' in res:
                     msg = res['msg']
                     if 'file' in res:
-                        (success, res) = utils.download_file(r, login_data, res['file'])
+                        (success, res) = ChurchToolsRequests.download_file(r, login_data, res['file'])
                         if success:
                             if res['type'] == 'file':
                                 bot.send_document(chat_id=update.message.chat_id, document=res['file'],
@@ -718,7 +720,7 @@ def login(bot, update, login_data):
     login_key = get_user_login_key(update.message.from_user.id)
     reply_markup = _getMarkup()
     try:
-        success, cookies = utils.login(r, login_data, updateCache=True, login_token=True)
+        success, cookies = ChurchToolsRequests.login(r, login_data, updateCache=True, login_token=True)
         if success:
             r.set(login_key, json.dumps(login_data))
             send_message(bot, update.message.chat_id,

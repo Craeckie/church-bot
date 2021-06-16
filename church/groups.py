@@ -3,7 +3,8 @@ import re
 from urllib.parse import urljoin
 
 from church.persons import _printPerson
-from church.utils import getAjaxResponse, get_cache_key, loadCache
+from church.ChurchToolsRequests import getAjaxResponse
+from church.utils import get_cache_key, loadCache
 
 
 def _printEntry(dict, key, description='', italic=False, bold=False):

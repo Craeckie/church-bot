@@ -1,7 +1,7 @@
 from urllib.parse import urljoin
 
-from .utils import getAjaxResponse
-from .utils import logger
+from .ChurchToolsRequests import getAjaxResponse
+from .ChurchToolsRequests import logger
 
 
 def _print_arrangements(song_id, j, arrangement_id=None):

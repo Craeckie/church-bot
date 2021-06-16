@@ -4,10 +4,10 @@ from collections import namedtuple
 from datetime import time, timedelta, datetime
 from urllib.parse import urljoin
 
-from church import utils
+from church import ChurchToolsRequests
 from church.RoomBookingParser import RoomBookingParser
 
-logger = utils.logging.getLogger(__name__)
+logger = ChurchToolsRequests.logging.getLogger(__name__)
 
 room_markup = ['Alle',
                'Saal',

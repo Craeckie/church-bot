@@ -3,7 +3,8 @@ import pickle
 import re
 from datetime import date
 
-from church.utils import getAjaxResponse, getPersonLink, get_cache_key, loadCache
+from church.ChurchToolsRequests import getAjaxResponse, getPersonLink
+from church.utils import get_cache_key, loadCache
 
 
 def parseGeburtstage(redis, login_data):
