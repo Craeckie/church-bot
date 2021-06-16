@@ -1,5 +1,6 @@
 import pickle
 
+from church import redis
 from church.BookingParser import BookingParser
 from church.ChurchToolsRequests import getAjaxResponse
 from church.utils import get_cache_key
@@ -50,7 +51,7 @@ class RoomBookingParser(BookingParser):
                 rules, start, duration = self._parseBooking(booking)
                 entries.append((booking, rules, start, duration))
             if not error:
-                self.redis.set(key, pickle.dumps(entries), ex=12 * 3600)
+                redis.set(key, pickle.dumps(entries), ex=12 * 3600)
             return error, entries
         return None, entries
 

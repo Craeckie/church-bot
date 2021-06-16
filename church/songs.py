@@ -1,8 +1,13 @@
+import logging
+import traceback
 from urllib.parse import urljoin
 
-from .ChurchToolsRequests import getAjaxResponse
-from .ChurchToolsRequests import logger
+import telegram
 
+from .ChurchToolsRequests import getAjaxResponse, download_file
+from .utils import send_message
+
+logger = logging.getLogger(__name__)
 
 def _print_arrangements(song_id, j, arrangement_id=None):
     ret = ""
@@ -25,8 +30,8 @@ def _print_arrangements(song_id, j, arrangement_id=None):
                 # print(f"{kf}: {files[kf]}")
     return ret
 
-def byID(redis, login_data, song_id, arrangement_id=None):
-    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
+def byID(login_data, song_id, arrangement_id=None):
+    (error, data) = getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if not data or 'songs' not in data:
         return False, error
     else:
@@ -39,8 +44,8 @@ def byID(redis, login_data, song_id, arrangement_id=None):
                 return True, _print_song(song, login_data, arrangement_id=arrangement_id)
     return False, 'Dieses Lied wurde nicht gefunden.'
 
-def search(redis, login_data, name):
-    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
+def search(login_data, name):
+    (error, data) = getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if not data or 'songs' not in data:
         return False, error
     else:
@@ -93,14 +98,14 @@ def _print_song(song, login_data, short=False, arrangement_id=None):
     if not short:
         arr = _print_arrangements(songid, song['arrangement'], arrangement_id=arrangement_id)
         if not arr:
-            return None
+            arr = '<i>Keine Dateien zu diesem Lied gefunden</i>\n'
         text += arr
 
     return text
 
 
-def download(redis, login_data, song_id, file_id):
-    (error, data) = getAjaxResponse(redis, 'service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
+def download(login_data, song_id, file_id):
+    (error, data) = getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if error or not data or 'songs' not in data:
         return {'msg': error}
     else:
@@ -123,3 +128,31 @@ def download(redis, login_data, song_id, file_id):
                             'file': url,
                             'msg': name,
                         }
+
+
+def song(context, update, file_id, login_data, reply_markup, song_id):
+    try:
+        res = download(login_data, song_id, file_id)
+        if res and 'msg' in res:
+            msg = res['msg']
+            if 'file' in res:
+                (success, res) = download_file(login_data, res['file'])
+                if success:
+                    if res['type'] == 'file':
+                        context.bot.send_document(chat_id=update.message.chat_id, document=res['file'],
+                                          filename=msg,
+                                          parse_mode=telegram.ParseMode.HTML)
+                    elif res['type'] == 'msg':
+                        for msg in res['msg']:
+                            send_message(context, update, msg, None, reply_markup)
+                    else:  # file
+                        send_message(context, update, res['file'], None, reply_markup)
+                else:
+                    send_message(context, update, res, None, reply_markup)
+            else:
+                send_message(context, update, msg, None, reply_markup)
+    except Exception as e:
+        eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+        msg = f"Failed!\nException: {eMsg}"
+        logger.error(msg)
+        send_message(context, update, msg, None, reply_markup)

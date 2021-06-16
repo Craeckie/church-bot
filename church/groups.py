@@ -1,11 +1,16 @@
+import logging
 import pickle
 import re
 from urllib.parse import urljoin
 
+import telegram
+
+from church import redis
 from church.persons import _printPerson
 from church.ChurchToolsRequests import getAjaxResponse
-from church.utils import get_cache_key, loadCache
+from church.utils import get_cache_key, loadCache, send_message
 
+logger = logging.getLogger(__name__)
 
 def _printEntry(dict, key, description='', italic=False, bold=False):
     t = ""
@@ -19,7 +24,7 @@ def _printEntry(dict, key, description='', italic=False, bold=False):
     return t
 
 
-def printGroup(redis, login_data, group, persons, masterData, list=False, onlyName=False):
+def printGroup(login_data, group, persons, masterData, list=False, onlyName=False):
     g_id = group['id']
     url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
     t = f'<a href="{url}">'
@@ -128,12 +133,12 @@ def _getGroupType(types, id):
     return types[id]['bezeichnung']
 
 
-def findGroup(redis, login_data, name):
+def findGroup(login_data, name):
     key = get_cache_key(login_data, 'group:find', name)
-    res = loadCache(redis, key)
+    res = loadCache(key)
     error = None
     if not res or True:
-        (error, data) = getAjaxResponse(redis, "db", "getMasterData", login_data=login_data, timeout=None)
+        (error, data) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
         if not data:  # or 'groups':
             return {
                 'success': False,
@@ -160,7 +165,7 @@ def findGroup(redis, login_data, name):
         if len(matches) == 0:
             pass
         elif len(matches) < 10:
-            (error, persons) = getAjaxResponse(redis, "db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+            (error, persons) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
 
             if not persons:
                 return {
@@ -175,7 +180,6 @@ def findGroup(redis, login_data, name):
                 if len(matches) == 1:
                     #t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
                     t.append(printGroup(
-                        redis=redis,
                         login_data=login_data,
                         group=g,
                         persons=persons,
@@ -186,7 +190,8 @@ def findGroup(redis, login_data, name):
                     img_id = g['groupimage_id']
                     if img_id:
                         try:
-                            img_data = getAjaxResponse(redis, f'files/{img_id}/metadata', login_data=login_data, isAjax=False, timeout=24 * 3600)
+                            img_data = getAjaxResponse(f'files/{img_id}/metadata', login_data=login_data, isAjax=False,
+                                                       timeout=24 * 3600)
                             res['photo'] = urljoin(login_data['url'], img_data[1]['url'])
                         except:
                             pass
@@ -253,14 +258,46 @@ def get_field_info(field, cancel_markup):
     return msg, markup
 
 
-def get_qrcode(redis, login_data, group_id):
+def get_qrcode(login_data, group_id):
     p_id = int(login_data['personid'])
-    (error, data) = getAjaxResponse(redis,
-                                    f'groups/{group_id}/qrcodecheckin/{p_id}/pdf',
-                                    login_data=login_data,
-                                    isAjax=False,
+    (error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin/{p_id}/pdf', login_data=login_data, isAjax=False,
                                     timeout=None)
     url = None
     if data and 'data' in data and data['data'] and 'url' in data['data'] and data['data']['url']:
         url = data['data']['url']
     return url
+
+
+def group(context, update, text, reply_markup, login_data):
+    res = None
+    try:
+        res = findGroup(login_data, text)
+    except Exception as e:
+        msg = f"Failed!\nException: {e}"
+        logger.error(msg)
+        return
+
+    # Combine lines to messages
+    cur_part = ''
+    num_lines = 0
+    messages = []
+    has_photo = 'photo' in res and res['photo']
+    for line in res['msg']:
+        cur_part += line
+        num_lines += 1
+        if num_lines > 80 or len(cur_part) > 5000 or (has_photo and num_lines == 1 and len(cur_part) > 150):
+            messages.append(cur_part)
+            cur_part = ''
+            num_lines = 0
+    messages.append(cur_part)
+    try:
+        msg = messages[0]
+        if has_photo:
+            context.bot.send_photo(update.message.chat_id, photo=res['photo'], caption=msg,
+                           parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
+            messages.pop(0)
+    except Exception as e:
+        msg = f"Failed!\nException: {e}"
+        logger.error(msg)
+    for msg in messages:
+        send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)

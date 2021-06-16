@@ -1,6 +1,7 @@
 import pickle
 from datetime import datetime
 
+from church import redis
 from church.BookingParser import BookingParser
 from church.utils import get_cache_key
 
@@ -24,7 +25,7 @@ class CalendarBookingParser(BookingParser):
     #                 if len(entries) >= 10:
     #                     toomany = True
     #                     break
-    #         self.redis.set(key, pickle.dumps((entries, toomany)), ex=12*3600)
+    #         redis.set(key, pickle.dumps((entries, toomany)), ex=12*3600)
     #     else:
     #         entries, toomany = entry_data
     #     return entries, toomany
@@ -47,7 +48,7 @@ class CalendarBookingParser(BookingParser):
                     rules, start, duration = self._parseBooking(booking)
                     entries.append((booking, rules, start, duration))
             if not error:
-                self.redis.set(key, pickle.dumps(entries), ex=3600 * 12)
+                redis.set(key, pickle.dumps(entries), ex=3600 * 12)
             return error, entries
         return None, entries
 
@@ -65,7 +66,7 @@ class CalendarBookingParser(BookingParser):
                 cat_params[f'category_ids[{ctr}]'] = c
                 ctr += 1
             cat_data = categories, cat_params
-            self.redis.set(key, pickle.dumps(cat_data), ex=7 * 24 * 3600)
+            redis.set(key, pickle.dumps(cat_data), ex=7 * 24 * 3600)
 
         return cat_data
 

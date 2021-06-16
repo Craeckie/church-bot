@@ -5,6 +5,7 @@ from collections import namedtuple
 
 from dateutil.rrule import rruleset, rrule, DAILY, WEEKLY, MONTHLY, weekday, YEARLY
 
+from church import redis
 from church.ChurchToolsRequests import getAjaxResponse, logging
 from church.utils import get_cache_key
 
@@ -14,8 +15,7 @@ logger = logging.getLogger(__name__)
 class BookingParser:
     Range = namedtuple('Range', ['start', 'end'])
 
-    def __init__(self, redis, login_data, module, func, cache_key):
-        self.redis = redis
+    def __init__(self, login_data, module, func, cache_key):
         self.login_data = login_data
         self.module = module
         self.func = func
@@ -48,7 +48,7 @@ class BookingParser:
                     entries.append(self._make_entry(r, booking))
             entries = self.sortBookings(entries, **kwargs)
             if not error:
-                self.redis.set(key, pickle.dumps(entries), ex=24 * 3600)
+                redis.set(key, pickle.dumps(entries), ex=24 * 3600)
         return error, entries
 
     def searchEntries(self, text):
@@ -76,7 +76,7 @@ class BookingParser:
             # entries = self.sortBookings(entries)
             toomanymsg = "Zu viele Ergebnisse, zeige die ersten 10."
             if not error:
-                self.redis.set(key, pickle.dumps((toomanymsg if toomany else None, entries)), ex=12*3600)
+                redis.set(key, pickle.dumps((toomanymsg if toomany else None, entries)), ex=12*3600)
             if toomany:
                 error = error + toomanymsg if error else toomanymsg
         else:
@@ -84,7 +84,7 @@ class BookingParser:
         return error, entries
 
     def _loadCache(self, key):
-        entr_str = self.redis.get(key)
+        entr_str = redis.get(key)
         return pickle.loads(entr_str) if entr_str else None
     def _parseBookings(self, booking):
         rules, start, duration = self._parseBooking(booking)
@@ -106,8 +106,7 @@ class BookingParser:
         return None
 
     def _ajaxResponse(self, **kwargs):
-        return getAjaxResponse(self.redis, self.module, self.func,
-                               login_data=self.login_data, **kwargs)
+        return getAjaxResponse(self.module, self.func, login_data=self.login_data, **kwargs)
 
     def _date_parse(self, t):
         return datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S")

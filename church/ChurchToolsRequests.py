@@ -6,6 +6,7 @@ from io import BytesIO
 from urllib.parse import urljoin
 import requests
 
+from church import redis
 from church.utils import get_cache_key, loadCache
 
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -58,7 +59,7 @@ def get_user_login_key(user_id):
     return f'login:{user_id}'
 
 
-def login(redis, login_data=None, updateCache=False, login_token=False):
+def login(login_data=None, updateCache=False, login_token=False):
     key = get_cache_key(login_data, 'login_cookies', usePerson=True)
     cookies_pickle = redis.get(key)
     cookies = pickle.loads(cookies_pickle) if cookies_pickle else None
@@ -116,11 +117,11 @@ def login(redis, login_data=None, updateCache=False, login_token=False):
     return True, cookies
 
 
-def download_file(redis, login_data, url):
+def download_file(login_data, url):
     key = get_cache_key(login_data, 'song:download', url)
-    res = loadCache(redis, key)
+    res = loadCache(key)
     if not res:
-        (success, res) = login(redis, login_data)
+        (success, res) = login(login_data)
         if not success:
             return False, res
         try:
@@ -163,7 +164,7 @@ def getPersonLink(login_data, id):
     return f'<a href="{url}">'
 
 
-def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600, additionalCacheKey=None, **params):
+def getAjaxResponse(*args, login_data, isAjax=True, timeout=3600, additionalCacheKey=None, **params):
     key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
     resp_str = redis.get(key)
     resp = json.loads(resp_str.decode('utf-8')) if resp_str else None
@@ -171,7 +172,7 @@ def getAjaxResponse(redis, *args, login_data, isAjax=True, timeout=3600, additio
         relogin = False
         while True:
 
-            (success, cookies) = login(redis, login_data, updateCache=relogin)
+            (success, cookies) = login(login_data, updateCache=relogin)
             if not success:
                 return cookies, None
             try:
