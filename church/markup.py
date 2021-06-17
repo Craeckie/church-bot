@@ -11,13 +11,12 @@ MARKUP_PEOPLE = u'\U0001F464 Personen'
 MARKUP_GROUPS = u'\U0001F465 Gruppen'
 MARKUP_SONGS = u'\U0001F3BC Lieder'
 MARKUP_EVENTS = '\U0001F465 Veranstaltungen (Beta)'
-MARKUP_PC = u'💻 PC'
+MARKUP_PC = u'Jetzt einloggen!'
 MARKUP_PHONE = u'\U0001F4F1 Handy'
 MARKUP_SIGNUP_YES = u'✅ Anmelden'
 MARKUP_SIGNUP_NO = u'❌ Abbrechen'
 LOGIN_MARKUP = InlineKeyboardMarkup([[
-        InlineKeyboardButton(MARKUP_PC, callback_data='PC'),
-        InlineKeyboardButton(MARKUP_PHONE, callback_data='PHONE')]])
+        InlineKeyboardButton(MARKUP_PC, callback_data='PC')]])
 
 
 def mainMarkup():

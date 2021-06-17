@@ -26,7 +26,8 @@ def button(update: Update, context: CallbackContext) -> None:
     if query.data == 'PHONE':
         photo_path = 'church/login-help.png'
         markup = InlineKeyboardMarkup([[InlineKeyboardButton(MARKUP_PC, callback_data='PC')]])
-        msg = f'Geh auf die <a href="{MAIN_URL}">Webseite von Churchtools</a>. ' \
+        msg = 'Geh auf die Webseite von Churchtools. ' \
+              f'Für die FeG-Karlsruhe ist das <a href="{MAIN_URL}">{MAIN_URL}</a>.\n' \
               "Log dich dort ein, dann\n(1) rechts oben auf deinen Namen/Bild->ChurchTools App:\n" \
               "(2) Lange auf den blauen Link klicken, (3) URL <b>kopieren</b> und hier als Nachricht schicken\n" \
               "Falls das nicht geht, kannst dus auch mit " + MARKUP_PC + " probieren\n" \
@@ -35,22 +36,23 @@ def button(update: Update, context: CallbackContext) -> None:
     else:  # PC
         photo_path = 'church/QR-Photo.jpg'
         markup = InlineKeyboardMarkup([[InlineKeyboardButton(MARKUP_PHONE, callback_data='PHONE')]])
-        msg = f'Zum Einloggen brauchst du den QR-Code für die ChurchTools-App. Die ChurchTools-App selber brauchst du nicht.\n' \
-              f'(1) Geh auf die <a href="{MAIN_URL}">Webseite von Churchtools</a>. ' \
+        msg = 'Zum Einloggen brauchst du den QR-Code für die ChurchTools-App. Die ChurchTools-App selber brauchst du nicht.\n' \
+              '(1) Geh auf die Webseite von Churchtools. ' \
+              f'Für die FeG-Karlsruhe ist das <a href="{MAIN_URL}">{MAIN_URL}</a>.\n' \
               'Log dich dort ein, dann geh auf Namen->ChurchTools App.\n' \
               'Dann hast du zwei Möglichkeiten:\n' \
-              '(2a) Oder: Mach das Fenster klein und mach einen Screenshot (mit der "Druck"-Taste).\n' \
+              '(2a) Einen Screenshot (mit der "Druck"-Taste). Der QR-Code muss vollständig sichtbar sein.\n' \
               '(2b) Oder: Mach mit deinem Handy ein Photo vom QR-Code.\n' \
-              '(3) Dann sende hier als Nachricht das Photo vom QR-Code.\n\n' \
-              'Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie'
+              '(3) Dann sende den Screenshot/Photo vom QR-Code hier als Nachricht.\n\n' \
+              'Bei Fragen oder Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie'
 
     with open(photo_path, 'rb') as f:
         if query.message.photo:
-            query.edit_message_media(media=InputMediaPhoto(media=f, caption=msg, parse_mode=telegram.ParseMode.HTML), reply_markup=markup)
+            query.edit_message_media(media=InputMediaPhoto(media=f, caption=msg, parse_mode=telegram.ParseMode.HTML))
         else:
             query.delete_message()
             context.bot.send_photo(update.effective_message.chat_id, photo=f, caption=msg,
-                           parse_mode=telegram.ParseMode.HTML, reply_markup=markup)
+                           parse_mode=telegram.ParseMode.HTML)
 
 
 def photo(update, context):
@@ -111,14 +113,14 @@ def check_login(context, update, text):
             login(context, update, login_data)
         else:
             send_message(context, update,
-                         "Die Daten scheinen ungültig zu sein. Sende am besten ein Foto vom QR-Code.",
-                         None, reply_markup=LOGIN_MARKUP)
+                         "Die Daten scheinen ungültig zu sein. Sende am besten ein Foto vom QR-Code.", None, reply_markup=LOGIN_MARKUP)
     else:
         send_message(context, update,
                      "Willkommen beim inoffiziellen ChurchTools-Bot!\n"
-                     "Zuerst musst du dich bei ChurchTools einloggen, das musst du nur einmal machen.\n"
-                     "Was benutzt du gerade?",
-                     None, reply_markup=LOGIN_MARKUP)
+                     "Zuerst musst du dich bei ChurchTools <b>einloggen</b>, das musst du nur <b>einmal</b> machen.\n"
+                     "Dafür brauchst du einen Laptop oder PC\n"
+                     "Klicke auf den Knopf unten, um mit dem Login fortzufahren:",
+                     parse_mode=telegram.ParseMode.HTML, reply_markup=LOGIN_MARKUP)
 
 
 def login(context, update, login_data):
