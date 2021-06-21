@@ -36,15 +36,17 @@ def button(update: Update, context: CallbackContext) -> None:
     else:  # PC
         photo_path = 'church/QR-Photo.jpg'
         markup = InlineKeyboardMarkup([[InlineKeyboardButton(MARKUP_PHONE, callback_data='PHONE')]])
-        msg = 'Zum Einloggen brauchst du den QR-Code für die ChurchTools-App. Die ChurchTools-App selber brauchst du nicht.\n' \
+        msg = 'Zum 🔑Einloggen brauchst du den QR-Code für die ChurchTools-App. Die ChurchTools-App selber brauchst du nicht.\n' \
               '(1) Geh auf die Webseite von Churchtools. ' \
               f'Für die FeG-Karlsruhe ist das <a href="{MAIN_URL}">{MAIN_URL}</a>.\n' \
               'Log dich dort ein, dann geh auf Namen->ChurchTools App.\n' \
               'Dann hast du zwei Möglichkeiten:\n' \
-              '(2a) Einen Screenshot (mit der "Druck"-Taste). Der QR-Code muss vollständig sichtbar sein.\n' \
-              '(2b) Oder: Mach mit deinem Handy ein Photo vom QR-Code.\n' \
-              '(3) Dann sende den Screenshot/Photo vom QR-Code hier als Nachricht.\n\n' \
-              'Bei Fragen oder Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie'
+              '(2a) Einen Screenshot (mit der "Druck"-Taste) machen. Der QR-Code muss vollständig sichtbar sein.\n' \
+              '(2b) Oder: Mach mit deinem 😊Handy ein 📸Photo vom QR-Code.\n' \
+              '(3) Dann sende den Screenshot/Photo vom QR-Code hier als Nachricht. Dann bist du eingeloggt 😊\n\n' \
+              'Bei Fragen oder Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie\n\n' \
+              '<i>Findest du das auch sehr umständlich?😳 Dann gib mir im ' \
+              '<a href="https://forum.church.tools/topic/7564/feature-request-login-mit-oauth">ChurchTools-Forum</a> ein 👍, damit sie das verbessern 🙃</i>'
 
     with open(photo_path, 'rb') as f:
         if query.message.photo:
