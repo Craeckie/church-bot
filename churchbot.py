@@ -145,10 +145,10 @@ def message(update, context):
             print_event(context, update, g_id, login_data, mainMarkup())
         elif mQR:
             g_id = mQR.group(1)
-            url = groups.get_qrcode(login_data, g_id)
-            if url:
+            qr = groups.get_qrcode(login_data, g_id)
+            if qr:
                 try:
-                    bot.send_document(update.effective_chat.id, document=url,
+                    bot.send_photo(update.effective_chat.id, photo=qr,
                                       caption="QR-Code fürs Check-In",
                                       parse_mode=telegram.ParseMode.HTML, reply_markup=mainMarkup(),
                                       timeout=30)

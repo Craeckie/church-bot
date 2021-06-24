@@ -56,13 +56,18 @@ def parse_signup(context, update, login_data, reply_markup, text):
             else:
                 send_message(context, update, "<b>Erfolgreich angemeldet!</b>",
                              telegram.ParseMode.HTML, reply_markup)
-                url = groups.get_qrcode(login_data, g_id)
-                if url:
+                #url = groups.get_qrcode(login_data, g_id)
+                qr = groups.get_qrcode(login_data, g_id)
+                if qr:
                     try:
-                        context.bot.send_photo(update.effective_chat.id, photo=url,
-                                       caption="QR-Code fürs Check-In",
-                                       parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
-                                       timeout=30)
+                        context.bot.send_photo(update.effective_chat.id, photo=qr,
+                                          caption="Hier ist dein QR-Code fürs Check-In",
+                                          parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                                          timeout=30)
+                        # context.bot.send_document(update.effective_chat.id, document=url,
+                        #                   caption="Hier ist dein QR-Code fürs Check-In",
+                        #                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                        #                   timeout=30)
                     except Exception as e:
                         send_message(context, update,
                                      "<i>Konnte QR-Code nicht senden :(</i>\n" + str(e),

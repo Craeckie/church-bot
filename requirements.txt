@@ -7,3 +7,4 @@ requests~=2.25.1
 phonenumbers~=8.12.21
 vobject~=0.9.6.1
 urllib3==1.26.4
+qrcode~=6.1

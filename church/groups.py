@@ -1,9 +1,11 @@
 import logging
 import pickle
 import re
+from io import BytesIO
 from urllib.parse import urljoin
 
 import telegram
+import qrcode
 
 from church import redis
 from church.persons import _printPerson
@@ -250,12 +252,26 @@ def get_field_info(field, cancel_markup):
 
 def get_qrcode(login_data, group_id):
     p_id = int(login_data['personid'])
-    (error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin/{p_id}/pdf', login_data=login_data, isAjax=False,
+    (error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin', login_data=login_data, isAjax=False,
                                     timeout=None)
-    url = None
-    if data and 'data' in data and data['data'] and 'url' in data['data'] and data['data']['url']:
-        url = data['data']['url']
-    return url
+    if data and 'data' in data and data['data'] and 'token' in data['data'][0] and data['data'][0]['token']:
+        token = data['data'][0]['token']
+        person_id = data['data'][0]['personId']
+        domainId = data['data'][0]['domainId']
+        qr_data = '/'.join([str(x) for x in [token, person_id, domainId]])
+        qr = qrcode.make(qr_data, box_size=10, border=3)
+        b = BytesIO()
+        qr.save(b, format='PNG')
+        b.seek(0)
+        return b
+    else:
+        return None
+    #(error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin/{p_id}/pdf', login_data=login_data, isAjax=False,
+    #                                timeout=None)
+    #url = None
+    #if data and 'data' in data and data['data'] and 'url' in data['data'] and data['data']['url']:
+    #    url = data['data']['url']
+    #return url
 
 
 def group(context, update, text, reply_markup, login_data):
