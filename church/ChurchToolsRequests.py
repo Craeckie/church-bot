@@ -165,10 +165,11 @@ def getPersonLink(login_data, id):
 
 
 def getAjaxResponse(*args, login_data, isAjax=True, timeout=3600, additionalCacheKey=None, **params):
-    key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
-    resp_str = redis.get(key)
-    resp = json.loads(resp_str.decode('utf-8')) if resp_str else None
-    if not resp or not timeout:
+    if timeout:
+        key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
+        resp_str = redis.get(key)
+        resp = json.loads(resp_str.decode('utf-8')) if resp_str else None
+    if not timeout or not resp:
         relogin = False
         while True:
 
