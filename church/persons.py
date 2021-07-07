@@ -47,7 +47,7 @@ _all2detail = {
 }
 
 
-def _printPerson(login_data, p, personList=False, onlyName=False, additionalName=''):
+def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False, additionalName=''):
     data = None
     if not personList and not onlyName:
         (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
@@ -80,6 +80,10 @@ def _printPerson(login_data, p, personList=False, onlyName=False, additionalName
 
     if 'telefonhandy' in p or 'telefonprivat' in p:
         t += f'\n\n<i>Kontakt speichern: </i>/C{p["id"]}'
+
+    if extraData:
+        if 'guid' in extraData:
+            t += f'\nChatte mit {p["vorname"]} auf <a href="https://matrix.to/#/@ct_{extraData["guid"].lower()}:chat.church.tools">Matrix!</a>'
     return t
 
 
@@ -134,44 +138,46 @@ def _getContact(p, photo_raw):
     }
 
 
-def _getPhoto(login_data, p):
+def _getPhoto(login_data, p, extraData):
     id = p['p_id']
     photo = None
-    (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600, id=id)
-    if data:
-        if 'imageurl' in data and data['imageurl']:
-            img_id = data['imageurl']
-            url = urljoin(login_data['url'], f'?q=public/filedownload&filename={img_id}&type=image')
-            #return (url, None)
-            try:
-                r = requests.get(url)
-                if r.ok:
-                    # p = j.add('photo')
-                    # p.type_param = 'JPEG'
-                    # p.encoding_param = 'b'
-                    # p.value = r.content
-                    # p.value = f'https://feg-karlsruhe.de/intern/?q=public/filedownload&filename={img_id}&type=image'
-                    photo = r.content
-                    r.close()
-                    return url, photo
-                else:
-                    return url, None
-            except Exception as e:
-                logger.warning('Couldn\'t download photo: ' + e)
+    if 'imageurl' in extraData and extraData['imageurl']:
+        img_id = extraData['imageurl']
+        url = urljoin(login_data['url'], f'?q=public/filedownload&filename={img_id}&type=image')
+        #return (url, None)
+        try:
+            r = requests.get(url)
+            if r.ok:
+                # p = j.add('photo')
+                # p.type_param = 'JPEG'
+                # p.encoding_param = 'b'
+                # p.value = r.content
+                # p.value = f'https://feg-karlsruhe.de/intern/?q=public/filedownload&filename={img_id}&type=image'
+                photo = r.content
+                r.close()
+                return url, photo
+            else:
                 return url, None
-    else:
-        logger.warning(f"Couldn't get photo for {id}: {error}")
+        except Exception as e:
+            logger.warning('Couldn\'t download photo: ' + e)
+            return url, None
     return None, None
 
 
-def _getPersonInfo(login_data, person):
-    res = {'msg': _printPerson(login_data, person)}
+def _getPersonInfo(login_data, person, extraData=None):
+    if not extraData:
+        (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+                                             login_data=login_data, timeout=24 * 3600,
+                                             id=person['p_id'])
+    res = {'msg': _printPerson(login_data, person, extraData=extraData)}
 
-    photo_url, photo_raw = _getPhoto(login_data, person)
-    if photo_url:
-        res['photo_url'] = photo_url
-    if photo_raw:
-        res['photo_raw'] = photo_raw
+    photo_raw = None
+    if extraData:
+        photo_url, photo_raw = _getPhoto(login_data, person, extraData)
+        if photo_url:
+            res['photo_url'] = photo_url
+        if photo_raw:
+            res['photo_raw'] = photo_raw
 
     contact = _getContact(person, photo_raw)
     if contact:
@@ -265,32 +271,40 @@ def searchPerson(login_data, text):
     if fullMatches:
         res['success'] = True
         if len(fullMatches) == 1:
-            photo_url, photo_raw = _getPhoto(login_data, fullMatches[0])
-            if photo_url:
-                res['photo_url'] = photo_url
-            if photo_raw:
-                res['photo_raw'] = photo_raw
+            (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+                                                 login_data=login_data, timeout=24 * 3600,
+                                                 id=fullMatches[0]['p_id'])
+            if extraData:
+                photo_url, photo_raw = _getPhoto(login_data, fullMatches[0], extraData)
+                if photo_url:
+                    res['photo_url'] = photo_url
+                if photo_raw:
+                    res['photo_raw'] = photo_raw
 
             contact = _getContact(fullMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
-            res.update(_getPersonInfo(login_data, fullMatches[0]))
+            res.update(_getPersonInfo(login_data, fullMatches[0]), extraData)
             res['success'] = True
         else:
             res['msg'] = _printPersons(login_data, fullMatches)
     elif partialMatches:
         res['success'] = True
         if len(partialMatches) == 1:
-            photo_url, photo_raw = _getPhoto(login_data, partialMatches[0])
-            if photo_url:
-                res['photo_url'] = photo_url
-            if photo_raw:
-                res['photo_raw'] = photo_raw
+            (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+                                                 login_data=login_data, timeout=24 * 3600,
+                                                 id=fullMatches[0]['p_id'])
+            if extraData:
+                photo_url, photo_raw = _getPhoto(login_data, partialMatches[0], extraData)
+                if photo_url:
+                    res['photo_url'] = photo_url
+                if photo_raw:
+                    res['photo_raw'] = photo_raw
 
             contact = _getContact(partialMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
-            res.update(_getPersonInfo(login_data, partialMatches[0]))
+            res.update(_getPersonInfo(login_data, partialMatches[0]), extraData)
         else:
             res['msg'] = _printPersons(login_data, partialMatches)
     if error:

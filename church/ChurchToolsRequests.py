@@ -103,7 +103,7 @@ def login(login_data=None, updateCache=False, login_token=False):
             try:
                 token_url = f'whoami?login_token={login_key}&user_id={login_data["personid"]}'
                 data = cc_api(token_url, cookies, login_data=login_data, returnJson=True)
-                if data['status'] == 'success':
+                if data['status'] == 'success' and '401: Unauthorized' not in data['message']:
                     logger.info(data)
                     redis.set(key, pickle.dumps(cookies.get_dict()))
                 else:
