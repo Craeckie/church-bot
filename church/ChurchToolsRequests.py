@@ -15,14 +15,14 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 logger = logging.getLogger(__name__)
 
 
-# def cc_login(user, password):
-#
-#     resp = requests.post('https://feg-karlsruhe.de/intern/?q=login/ajax', {
-#         'func': 'login',
-#         'email': user,
-#         'password': password
-#     }, timeout=30 * 60)
-#     return resp
+def cc_login(cookies, login_data):
+    url = urljoin(login_data['url'], '?q=login/ajax')
+    resp = requests.post(url, {
+        'func': 'loginWithToken',
+        'token': login_data['token'],
+        'id': login_data['personid']
+    }, timeout=45, cookies=cookies)
+    return resp
 
 
 def cc_func(module, func, cookies, login_data, params={}):
@@ -84,15 +84,16 @@ def login(login_data=None, updateCache=False, login_token=False):
         cookies = resp1.cookies
         if not login_key or login_token: # login key not valid, try login token
             logger.info(f"Getting new login token for {login_data['personid']}")
-            login_url = urljoin(login_data['url'], f"?q=profile&loginstr={login_data['token']}&id={login_data['personid']}")
+            # oder /api/whoami?loginstr=..&id=..:
+            login_url = urljoin(login_data['url'], f"?loginstr={login_data['token']}&id={login_data['personid']}")
             resp = requests.get(login_url, cookies=cookies)
 
             if 'Der verwendete Login-Link ist nicht mehr aktuell und kann deshalb nicht mehr verwendet werden.' in resp.text:
                 redis.delete(get_user_login_key(login_data['telegramid']))
-                return False, 'Login fehlgeschlagen, versuchs es mit einem neuen Link.'
+                return False, 'Login fehlgeschlagen, versuchs es mit einem neuen QR-Code.'
             else: # get new login key & cookies using login token
                 data = cc_api(f'persons/{login_data["personid"]}/logintoken', cookies=cookies, login_data=login_data, returnJson=True)
-                if data['status'] == 'success':
+                if data['status'] == 'success' and ('message' not in data or '401: Unauthorized' not in data['message']):
                     inner_data = data['data']
                     # cookies = resp.cookies.get_dict()
                     redis.set(key_token, pickle.dumps(inner_data['data']))
