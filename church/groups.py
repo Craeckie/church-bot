@@ -46,6 +46,7 @@ def printGroup(login_data, group, persons, masterData, list=False, onlyName=Fals
 
     cur_part = _printEntry(group, key='notiz', italic=False)
     cur_part = re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', cur_part)
+    cur_part = cur_part.replace('<br/>', '')
     if list and len(cur_part) > 120:
         cur_part = cur_part[:100] + "..."
     parts.append(cur_part)
