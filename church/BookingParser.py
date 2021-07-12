@@ -33,7 +33,7 @@ class BookingParser:
             (error, bookings) = self.getAllBookings()
             #logger.debug(bookings)
             if not bookings:
-                return None
+                return error if error else 'Konnte Buchungen nicht laden', None
             Range = namedtuple('Range', ['start', 'end'])
             # week = Range(start=datetime.now(), end=datetime.now() + timedelta(days=8))
             entries = []

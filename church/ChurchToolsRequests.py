@@ -67,7 +67,7 @@ def login(login_data=None, updateCache=False, login_token=False):
     # Check if session cookie still valid
     if cookies and not updateCache:
         data = cc_func('resource', 'pollForNews', cookies, login_data=login_data)
-        if not data or 'data' not in data:
+        if not data or 'data' not in data or ('userid' in data['data'] and str(data['data']['userid']) == '-1'):
             cookies = None
         else:
             data = data['data']
@@ -104,7 +104,7 @@ def login(login_data=None, updateCache=False, login_token=False):
             try:
                 token_url = f'whoami?login_token={login_key}&user_id={login_data["personid"]}'
                 data = cc_api(token_url, cookies, login_data=login_data, returnJson=True)
-                if data['status'] == 'success' and '401: Unauthorized' not in data['message']:
+                if data['status'] == 'success' and ('message' not in data or '401: Unauthorized' not in data['message']):
                     logger.info(data)
                     redis.set(key, pickle.dumps(cookies.get_dict()))
                 else:
@@ -165,9 +165,9 @@ def getPersonLink(login_data, id):
     return f'<a href="{url}">'
 
 
-def getAjaxResponse(*args, login_data, isAjax=True, timeout=3600, additionalCacheKey=None, **params):
+def getAjaxResponse(*args, login_data, isAjax=True, timeout=10, additionalCacheKey=None, **params):
+    key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
     if timeout:
-        key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
         resp_str = redis.get(key)
         resp = json.loads(resp_str.decode('utf-8')) if resp_str else None
     if not timeout or not resp:

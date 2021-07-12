@@ -31,7 +31,10 @@ class CalendarBookingParser(BookingParser):
     #     return entries, toomany
 
     def getAllBookings(self):
-        self.categories, cat_params = self._getCategories()
+        categories, cat_params = self._getCategories()
+        if not cat_params:
+            return categories, None # categories is error message
+        self.categories = categories
 
         key = get_cache_key(self.login_data, self.cache_key, useDate=True)
         entries = self._loadCache(key)
