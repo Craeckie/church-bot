@@ -204,7 +204,8 @@ def getAjaxResponse(*args, login_data, isAjax=True, timeout=10, additionalCacheK
                 return str(resp), None
         else:
             resp_str = json.dumps(resp)
-            redis.set(key, resp_str, ex=timeout)
+            if timeout:
+                redis.set(key, resp_str, ex=timeout)
             redis.set(key + "_latest", resp_str)
             redis.set(key + "_latest:time", datetime.now().timestamp())
     return None, resp['data']

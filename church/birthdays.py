@@ -1,3 +1,4 @@
+import datetime
 import json
 import pickle
 import re
@@ -12,7 +13,7 @@ def parseGeburtstage(login_data):
     key = get_cache_key(login_data, 'birthdays', useDate=True)
     msg = loadCache(key)
     if not msg:
-        (error, data) = getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=1800)
+        (error, data) = getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
 
         if not data:
             print(error)
@@ -50,7 +51,12 @@ def parseGeburtstage(login_data):
                 if error:
                     msg += f"\n<i>{error}</i>"
                 else:
-                    redis.set(key, pickle.dumps(msg), ex=3600 * 24)
+                    now = datetime.datetime.now()
+                    midnight = now
+                    midnight.hour = 23
+                    midnight.second = 59
+                    expiry_time = (midnight - now).seconds
+                    redis.set(key, pickle.dumps(msg), ex=expiry_time)
             except Exception as e:
                 return "Error while parsing: %s" % e
     return msg

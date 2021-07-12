@@ -11,7 +11,8 @@ def get_cache_key(login_data, *args, useDate=False, usePerson=False, **kwargs):
     if usePerson:
         parts.append(login_data['personid'])
     if useDate:
-        parts.append(str(datetime.today().date()))
+        curDate = str(datetime.today().date())
+        parts.append(curDate)
         parts.insert(0, 'temporary')
     parts.append(','.join([f'{k}:{kwargs.get(k)}' for k in kwargs.keys()]))
     return ':'.join(parts)

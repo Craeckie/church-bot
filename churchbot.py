@@ -20,7 +20,7 @@ from church.markup import MARKUP_ROOMS, MARKUP_CALENDAR, MARKUP_BIRTHDAYS, MARKU
     MARKUP_EVENTS, mainMarkup, RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP, EMPTY_MARKUP
 from church.persons import person
 from church.rooms import parseRaeumeByTime, parseRaeumeByText, room_markup
-from church.ChurchToolsRequests import get_user_login_key
+from church.ChurchToolsRequests import get_user_login_key, login
 from church.songs import song
 from church.utils import send_message, mode_key
 
@@ -47,6 +47,10 @@ def message(update, context):
 
     if login_data_str:
         login_data = json.loads(login_data_str)
+        success, message = login(login_data=login_data)
+        if not success:
+            check_login(context, update, text, firstTime=False)
+            return
     else:
         # not logged in, check if login data sent and don't continue afterwards
         check_login(context, update, text)

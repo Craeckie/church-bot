@@ -98,7 +98,7 @@ def parseQRData(data, user_id):
     return login_data
 
 
-def check_login(context, update, text):
+def check_login(context, update, text, firstTime=True):
     if text.strip().startswith('churchtools://'):
         m = re.match("churchtools://login\?instanceurl=([^&]+)&loginstring=([^&]+)&personid=([0-9]+)", text)
         if m:
@@ -117,11 +117,14 @@ def check_login(context, update, text):
             send_message(context, update,
                          "Die Daten scheinen ungültig zu sein. Sende am besten ein Foto vom QR-Code.", None, reply_markup=LOGIN_MARKUP)
     else:
+        if firstTime:
+            msg = "Willkommen beim inoffiziellen ChurchTools-Bot!\n" \
+                  "Zuerst musst du dich bei ChurchTools <b>einloggen</b>, das musst du nur <b>einmal</b> machen.\n" \
+                  "Dafür brauchst du einen Laptop oder PC\n"
+        else:
+            msg = "Leider ist dein Login-Token nicht mehr gültig (hast du dein Passwort geändert?) und du musst dich neu einloggen.\n"
         send_message(context, update,
-                     "Willkommen beim inoffiziellen ChurchTools-Bot!\n"
-                     "Zuerst musst du dich bei ChurchTools <b>einloggen</b>, das musst du nur <b>einmal</b> machen.\n"
-                     "Dafür brauchst du einen Laptop oder PC\n"
-                     "Klicke auf den Knopf unten, um mit dem Login fortzufahren:",
+                     msg + "Klicke auf den Knopf unten, um mit dem Login fortzufahren:",
                      parse_mode=telegram.ParseMode.HTML, reply_markup=LOGIN_MARKUP)
 
 
