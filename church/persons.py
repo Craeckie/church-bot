@@ -275,7 +275,7 @@ def searchPerson(login_data, text):
                                                  login_data=login_data, timeout=24 * 3600,
                                                  id=fullMatches[0]['p_id'])
             if extraData:
-                photo_url, photo_raw = _getPhoto(login_data, fullMatches[0], extraData)
+                photo_url, photo_raw = _getPhoto(login_data=login_data, p=fullMatches[0], extraData=extraData)
                 if photo_url:
                     res['photo_url'] = photo_url
                 if photo_raw:
@@ -284,7 +284,7 @@ def searchPerson(login_data, text):
             contact = _getContact(fullMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
-            res.update(_getPersonInfo(login_data, fullMatches[0]), extraData)
+            res.update(_getPersonInfo(login_data, fullMatches[0], extraData))
             res['success'] = True
         else:
             res['msg'] = _printPersons(login_data, fullMatches)
@@ -301,10 +301,10 @@ def searchPerson(login_data, text):
                 if photo_raw:
                     res['photo_raw'] = photo_raw
 
-            contact = _getContact(partialMatches[0], photo_raw)
+            contact = _getContact(p=partialMatches[0], photo_raw=photo_raw)
             if contact:
                 res['contact'] = contact
-            res.update(_getPersonInfo(login_data, partialMatches[0]), extraData)
+            res.update(_getPersonInfo(login_data, partialMatches[0], extraData))
         else:
             res['msg'] = _printPersons(login_data, partialMatches)
     if error:
