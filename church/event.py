@@ -8,7 +8,7 @@ import telegram
 from telegram import ReplyKeyboardMarkup
 
 from church import groups, redis
-from church.ChurchToolsRequests import getAjaxResponse
+from church.ChurchToolsRequests import getAjaxResponse, getPersonLink
 from church.markup import MARKUP_SIGNUP_YES, MARKUP_SIGNUP_NO
 from church.utils import send_message, loadCache, mode_key
 
@@ -184,6 +184,11 @@ def agenda(context, update, login_data, a_id, reply_markup):
                 for service in event['services']:
                     if service['name']:
                         name = service['name']
+                        if 'cdb_person_id' in service:
+                            p_id = service['cdb_person_id']
+                            name_msg = f'{getPersonLink(login_data, p_id)}{name}</a> /P{p_id}'
+                        else:
+                            name_msg = name
                         service_id = service['service_id']
                         info = masterService[service_id]
                         service_group = masterServiceGroups[info['servicegroup_id']]
@@ -194,13 +199,13 @@ def agenda(context, update, login_data, a_id, reply_markup):
                         service_name = info['bezeichnung']
                         group_name, services = servicegroups[group_id]
                         if service_name not in services:
-                            services[service_name] = name
+                            services[service_name] = name_msg
                         else:
-                            services[service_name] += ', ' + name
+                            services[service_name] += ', ' + name_msg
 
                 for name, services in [x for x in servicegroups if x]:
                     if services:
-                        msg += f'<pre>{name}</pre>'
+                        msg += f'<pre>{name}</pre>\n'
                         for k, v in services.items():
                             msg += f'{k}: {v}\n'
                 msg += '\n'
