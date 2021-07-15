@@ -42,7 +42,7 @@ def button(update: Update, context: CallbackContext) -> None:
               'Log dich dort ein, dann geh auf Namen->ChurchTools App.\n' \
               'Dann hast du zwei Möglichkeiten:\n' \
               '(2a) Einen Screenshot (mit der "Druck"-Taste) machen. Der QR-Code muss vollständig sichtbar sein.\n' \
-              '(2b) Oder: Mach mit deinem 😊Handy ein 📸Photo vom QR-Code.\n' \
+              '(2b) Oder: Mach mit deinem \U0001F4F1Handy ein 📸Photo vom QR-Code.\n' \
               '(3) Dann sende den Screenshot/Photo vom QR-Code hier als Nachricht. Dann bist du eingeloggt 😊\n\n' \
               'Bei Fragen oder Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie\n\n' \
               '<i>Findest du das auch sehr umständlich?😳 Dann gib mir im ' \
