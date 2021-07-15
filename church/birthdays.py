@@ -52,9 +52,8 @@ def parseGeburtstage(login_data):
                     msg += f"\n<i>{error}</i>"
                 else:
                     now = datetime.datetime.now()
-                    midnight = now
-                    midnight.hour = 23
-                    midnight.second = 59
+                    midnight = datetime.datetime(year=now.year, month=now.month, day=now.day,
+                                                 hour=23, minute=59, second=59)
                     expiry_time = (midnight - now).seconds
                     redis.set(key, pickle.dumps(msg), ex=expiry_time)
             except Exception as e:
