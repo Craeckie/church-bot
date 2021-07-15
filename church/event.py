@@ -166,10 +166,9 @@ def list_events(context, login_data, reply_markup, update):
 def agenda(context, update, login_data, a_id, reply_markup):
     try:
         (error, data) = getAjaxResponse(f'events/{a_id}/agenda', login_data=login_data, isAjax=False, timeout=600)
-        if 'data' in data:
+        if data and 'data' in data:
             data = data['data']
 
-            msg = ''
             try:
                 (error, masterData) = getAjaxResponse("service", "getMasterData", login_data=login_data, timeout=None)
 
