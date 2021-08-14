@@ -49,6 +49,7 @@ _all2detail = {
 
 def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False, additionalName=''):
     data = None
+    groups = p['groupmembers'] if 'groupmembers' in p else None
     if not personList and not onlyName:
         (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
                                         id=p['p_id'])
@@ -57,11 +58,17 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
     else:
         p = dict([(_all2detail[k], v) if k in _all2detail.keys() else (k, v) for k, v in p.items() if v])
     t = getPersonLink(login_data, p['id'])
-    t += f"{p['vorname']} {p['name']}</a>"
+    t += f"{p['vorname']} {p['name']}"
     if 'spitzname' in p:
         t += f" ({p['spitzname']})"
+    gender_key = 'geschlecht_no'
+    if gender_key in p:
+        t += ' ♂' if p[gender_key] == '1' else \
+             ' ♀' if p[gender_key] == '2' else \
+             ' ⚧' if p[gender_key] == '3' else ''
+    t += '</a>'
     if additionalName:
-        t += f" ({additionalName})"
+        t += f"<i> ({additionalName})</i>"
     if personList:
         t += f" /P{p['id']}"
     if onlyName:
@@ -72,18 +79,102 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
         t += f"\n{p['strasse']}\n{p['plz']} {p['ort']}\n"
 
     t += "\n"
-    if 'geburtsdatum' in p and p['geburtsdatum']:
-        birthday = datetime.strptime(p['geburtsdatum'], '%Y-%m-%d %H:%M:%S')
-        t += f'Geburtstag: {birthday.strftime("%d.%m.%Y")}\n'
-    # Weitere Daten
+
+    # Contact information
     t += '\n'.join([f"{_keyNameMap[k]}: {p[k]}" for k in _keyNameMap.keys() if k in p])
+    t += '\n'
+
+    # Birthday
+    birthday_str = p['geb'] if 'geb' in p else (p['geburtsdatum'] if 'geburtsdatum' in p else None)
+    if birthday_str:
+        birthday = datetime.strptime(birthday_str.split(' ')[0], '%Y-%m-%d')
+        today = datetime.today()
+        age = today.year - birthday.year - ((today.month, today.day) < (birthday.month, birthday.day))
+        t += f'Geburtstag: {birthday.strftime("%d.%m.%Y")} ({age})\n'
+
+    t += '\n'
+
+    # Relatives
+    if 'rels' in p and p['rels']:
+        t += '<pre>Verwandschaft</pre>\n'
+        for rel in p['rels']:
+            rel_id = rel['vater_id'] if rel['vater_id'] != p['id'] else rel['kind_id']
+            (error, rel_person) = getAjaxResponse("db", "getPersonDetails",
+                                                       login_data=login_data,
+                                                       timeout=24 * 3600,
+                                                       id=rel_id)
+            if rel_person:
+                rel_name = f'{rel_person["vorname"]} {rel_person["name"]}'
+
+                rel_type = rel['beziehungstyp_id']
+                if rel_type == '1':
+                    if rel['vater_id'] == rel_id: # is parent of current person
+                        if gender_key in rel_person and rel_person['geschlecht_no']:
+                            t += 'Vater' if rel_person[gender_key] == '1' else \
+                                 'Mutter' if rel_person[gender_key] == '2' else \
+                                 'Elternteil'
+                        else:
+                            t += 'Elternteil'
+                    elif rel['kind_id'] == rel_id: # is child of current person
+                        if gender_key in rel_person and rel_person['geschlecht_no']:
+                            t += 'Sohn' if rel_person[gender_key] == '1' else \
+                                 'Tochter' if rel_person[gender_key] == '2' else \
+                                 'Kind'
+                        else:
+                            t += 'Kind'
+
+                    t += f': {getPersonLink(login_data, rel_id)}{rel_name}</a> /P{rel_id}'
+                elif rel_type == '2':
+                    t += f'Verheiratet mit {getPersonLink(login_data, rel_id)}{rel_name}</a> /P{rel_id}'
+                    wedding_key = 'hochzeitsdatum'
+                    if extraData and wedding_key in extraData and extraData[wedding_key]:
+                        try:
+                            birthday = datetime.strptime(extraData[wedding_key].split(' ')[0], '%Y-%m-%d')
+                            t += f' (seit {birthday.strftime("%d.%m.%Y")})'
+                        except:
+                            pass
+                t += '\n'
+        t += '\n'
+
+    # Groups
+    if groups:
+        t += f'Gruppen: /PG{p["id"]}\n\n'
 
     if 'telefonhandy' in p or 'telefonprivat' in p:
-        t += f'\n\n<i>Kontakt speichern: </i>/C{p["id"]}'
-
+        t += f'<i>Kontakt speichern: </i>/C{p["id"]}'
+        
     if extraData:
         if 'guid' in extraData:
             t += f'\nChatte mit {p["vorname"]} auf <a href="https://matrix.to/#/@ct_{extraData["guid"].lower()}:chat.church.tools">Matrix!</a>'
+    return t
+
+def printPersonGroups(login_data, person):
+    from church.groups import printGroup
+
+    t = 'Gruppen von ' + _printPerson(login_data, person, personList=True, onlyName=True) + '\n'
+    groups = person['groupmembers'] if 'groupmembers' in person else None
+    if not groups:
+        t += '<i>Keine Gruppen gefunden.</i>'
+        return t
+    (error, master_data) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
+    if master_data:
+        group_types = {}
+        for group_id in groups:
+            group = master_data['groups'][group_id]
+            group_type_id = group['gruppentyp_id']
+            if group_type_id in group_types:
+                group_types[group_type_id].append(group)
+            else:
+                group_types[group_type_id] = [group]
+        for group_type_id, groups in group_types.items():
+            group_type = master_data['groupTypes'][group_type_id]['bezeichnung']
+            t += f'\n<pre>{group_type}</pre>\n'
+            for group in groups:
+                parts = printGroup(login_data, group, list=True, onlyName=True)
+                t += f'- {parts[0]}\n'
+        t += '\n'
+    else:
+        t += '<i>Konnte Gruppenteilnahme nicht abrufen</i>\n'
     return t
 
 
@@ -188,13 +279,15 @@ def _getPersonInfo(login_data, person, extraData=None):
 def searchPerson(login_data, text):
     (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
 
+    regex_id = '/(P|C|PG)([0-9]+)'
+    regex_phone = '\+?[0-9 /()-]+'
     if not data:
         return {
             'success': False,
             'msg': error
         }
-    elif re.match('/(P|C)([0-9]+)', text):
-        pid = text[2:]
+    elif re.match(regex_id, text):
+        pid = re.match(regex_id, text).group(2)
         logger.info(f"Searching for id {pid}")
         for n in data:
             person = data[n]
@@ -207,7 +300,7 @@ def searchPerson(login_data, text):
                     res['msg'] += f'\n<i>{error}</i>'
                 return res
 
-    elif re.match('\+?[0-9 /()-]+', text):
+    elif re.match(regex_phone, text):
         logger.info(f"Searching through {len(data)} persons..")
         try:
             cur = _parseNumber(text)
@@ -284,7 +377,7 @@ def searchPerson(login_data, text):
             contact = _getContact(fullMatches[0], photo_raw)
             if contact:
                 res['contact'] = contact
-            res.update(_getPersonInfo(login_data, fullMatches[0], extraData))
+            res.update(_getPersonInfo(login_data, fullMatches[0], extraData=extraData))
             res['success'] = True
         else:
             res['msg'] = _printPersons(login_data, fullMatches)
@@ -304,7 +397,7 @@ def searchPerson(login_data, text):
             contact = _getContact(p=partialMatches[0], photo_raw=photo_raw)
             if contact:
                 res['contact'] = contact
-            res.update(_getPersonInfo(login_data, partialMatches[0], extraData))
+            res.update(_getPersonInfo(login_data, partialMatches[0], extraData=extraData))
         else:
             res['msg'] = _printPersons(login_data, partialMatches)
     if error:
