@@ -18,9 +18,9 @@ from church.groups import group
 from church.login_utils import button, photo, check_login
 from church.markup import MARKUP_ROOMS, MARKUP_CALENDAR, MARKUP_BIRTHDAYS, MARKUP_PEOPLE, MARKUP_GROUPS, MARKUP_SONGS, \
     MARKUP_EVENTS, mainMarkup, RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP, EMPTY_MARKUP
-from church.persons import person
+from church.persons import person, printPersonGroups, searchPerson
 from church.rooms import parseRaeumeByTime, parseRaeumeByText, room_markup
-from church.ChurchToolsRequests import get_user_login_key, login
+from church.ChurchToolsRequests import get_user_login_key, login, getAjaxResponse
 from church.songs import song
 from church.utils import send_message, mode_key
 
@@ -110,6 +110,7 @@ def message(update, context):
         m2 = re.match('/dl_([0-9]+)_([0-9]+)', text)
         mPerson = re.match('/P([0-9]+)', text)
         mPersonContact = re.match('/C([0-9]+)', text)
+        mPersonGroup = re.match('/PG([0-9]+)', text)
         mGroup = re.match('/G([0-9]+)', text)
         mEvent = re.match('/E([0-9]+)', text)
         mQR = re.match('/Q([0-9]+)', text)
@@ -142,6 +143,24 @@ def message(update, context):
             person(context, update, text, mainMarkup(), login_data)
         elif mPersonContact:
             person(context, update, text, mainMarkup(), login_data, contact=True)
+        elif mPersonGroup:
+            try:
+                (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+                if not data:
+                    msg = '<i>Konnte Daten nicht abrufen!</i>'
+                else:
+                    p_id = mPersonGroup.group(1)
+                    p = data[p_id] if p_id in data else None
+                    if p:
+                        msg = printPersonGroups(login_data, p)
+                    else:
+                        msg = '<i>Person nicht gefunden.</i>'
+                send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+            except Exception as e:
+                eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
+                msg = f"Failed!\nException: {eMsg}"
+                logger.error(msg)
+                send_message(context, update, msg, None, mainMarkup())
         elif mGroup:
             group(context, update, text, mainMarkup(), login_data=login_data)
         elif mEvent:

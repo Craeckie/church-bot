@@ -224,7 +224,7 @@ def agenda(context, update, login_data, a_id, reply_markup):
                     event_type = item['type'] if 'type' in item else None
                     part = ''
                     if isBeforeEvent and not item['isBeforeEvent']:
-                        msg += "<pre>Eventstart</pre>\n"
+                        msg += "\n<b>Eventstart</b>\n"
                         isBeforeEvent = False
                     if event_type != 'header':
                         if item['isBeforeEvent']:
@@ -237,7 +237,7 @@ def agenda(context, update, login_data, a_id, reply_markup):
                         part += '<pre>'
                     if 'song' in item and item['song']:
                         song = item['song']
-                        part += '<i>Lied: </i>' + song['title'] + f' /S{song["songId"]}_{song["arrangementId"]}'
+                        part += '🎵 ' + song['title'] + f' /S{song["songId"]}_{song["arrangementId"]}'
                     else:
                         part += item['title']
                     if 'note' in item and item['note']:
