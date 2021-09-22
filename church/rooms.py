@@ -93,7 +93,7 @@ def parseRaeumeByText(login_data, search):
         text[-1] = text[-1] + f'\n<i>{error}</i>'
     return text
 
-def parseRaeumeByTime(login_data, subset, dayRange=7, dayOffset=0):
+def parseRaeumeByTime(login_data, subset=None, dayRange=7, dayOffset=0):
     parser = RoomBookingParser(login_data)
     error, entr = parser.getEntries(dayRange, dayOffset, subset=subset, sortByRoom=dayRange == 0)
     if entr is None:
@@ -106,7 +106,8 @@ def parseRaeumeByTime(login_data, subset, dayRange=7, dayOffset=0):
 
     if not text:
         text = ["Keine Buchungen!"]
-    text[0] = f"<b>{subset}</b>\n" + text[0]
+    if subset:
+        text[0] = f"<b>{subset}</b>\n" + text[0]
     if error:
         text[-1] = text[-1] + f'\n<i>{error}</i>'
     return text

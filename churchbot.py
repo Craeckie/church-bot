@@ -17,7 +17,8 @@ from church.event import parse_signup, list_events, agenda, print_event
 from church.groups import group
 from church.login_utils import button, photo, check_login
 from church.markup import MARKUP_ROOMS, MARKUP_CALENDAR, MARKUP_BIRTHDAYS, MARKUP_PEOPLE, MARKUP_GROUPS, MARKUP_SONGS, \
-    MARKUP_EVENTS, mainMarkup, RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP, EMPTY_MARKUP
+    MARKUP_EVENTS, mainMarkup, RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP, EMPTY_MARKUP, RAUM_ZEIT_MARKUP_SIMPLE, \
+    RAUM_ZEIT_MARKUP_EXTENDED
 from church.persons import person, printPersonGroups, searchPerson
 from church.rooms import parseRaeumeByTime, parseRaeumeByText, room_markup
 from church.ChurchToolsRequests import get_user_login_key, login, getAjaxResponse
@@ -67,9 +68,17 @@ def message(update, context):
             calendar(context, update, login_data, mode_key(update), text)
         elif mode == 'rooms':
             if text in RAUM_ZEIT_MARKUP:
-                cur_time_markup = [[f'{text}: {r}'] for r in room_markup]
-                send_message(context, update, "Welche Räume?", telegram.ParseMode.HTML,
-                             ReplyKeyboardMarkup(cur_time_markup))
+                if text in RAUM_ZEIT_MARKUP_SIMPLE:
+                    if text == 'Heute':
+                        msgs = parseRaeumeByTime(login_data, None, dayRange=0)
+                    elif text == 'Morgen':
+                        msgs = parseRaeumeByTime(login_data, None, dayRange=0, dayOffset=1)
+                    for msg in msgs:
+                        send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                elif text in RAUM_ZEIT_MARKUP_EXTENDED:
+                    cur_time_markup = [[f'{text}: {r}'] for r in room_markup]
+                    send_message(context, update, "Welche Räume?", telegram.ParseMode.HTML,
+                                 ReplyKeyboardMarkup(cur_time_markup))
             elif text in RAUM_EXTENDED_MARKUP:
                 redis.set(mode_key(update), 'room_search')
                 send_message(context, update, "Gib den Namen der Raumbelegung (oder einen Teil ein):", None,
@@ -122,12 +131,12 @@ def message(update, context):
             room = m1.group(2)
         if m1 and zeit in RAUM_ZEIT_MARKUP and room in room_markup:
             try:
-                if zeit == 'Heute':
-                    msgs = parseRaeumeByTime(login_data, room, dayRange=0)
-                elif zeit == 'Nächste 7 Tage':
+                if zeit == 'Nächste 7 Tage':
                     msgs = parseRaeumeByTime(login_data, room, dayRange=7)
-                elif zeit == 'Morgen':
-                    msgs = parseRaeumeByTime(login_data, room, dayRange=0, dayOffset=1)
+                elif text == 'Heute':
+                    msgs = parseRaeumeByTime(login_data, None, dayRange=0)
+                elif text == 'Morgen':
+                    msgs = parseRaeumeByTime(login_data, None, dayRange=0, dayOffset=1)
                 for msg in msgs:
                     send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
             except Exception as e:
