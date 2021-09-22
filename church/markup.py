@@ -28,6 +28,8 @@ def mainMarkup():
     return ReplyKeyboardMarkup(custom_keyboard)
 
 
-RAUM_ZEIT_MARKUP = ['Heute', 'Morgen', 'Nächste 7 Tage']
+RAUM_ZEIT_MARKUP_SIMPLE = ['Heute', 'Morgen']
+RAUM_ZEIT_MARKUP_EXTENDED = ['Nächste 7 Tage']
+RAUM_ZEIT_MARKUP = RAUM_ZEIT_MARKUP_SIMPLE + RAUM_ZEIT_MARKUP_EXTENDED
 RAUM_EXTENDED_MARKUP = ['Suche']
 EMPTY_MARKUP = ReplyKeyboardRemove()
