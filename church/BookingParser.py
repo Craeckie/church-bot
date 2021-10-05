@@ -7,6 +7,7 @@ from dateutil.rrule import rruleset, rrule, DAILY, WEEKLY, MONTHLY, weekday, YEA
 
 from church import redis
 from church.ChurchToolsRequests import getAjaxResponse, logging
+from church.config import BOOKINGS_SEARCH_MAX
 from church.utils import get_cache_key
 
 logger = logging.getLogger(__name__)
@@ -71,13 +72,13 @@ class BookingParser:
                        for key in self._get_search_keys()):
                     #entries += self._parseBookings(booking)
                     entries.append(booking)
-                    if len(entries) >= 10:
+                    if len(entries) >= BOOKINGS_SEARCH_MAX:
                         toomany = True
                         break
             # entries = self.sortBookings(entries)
-            toomanymsg = "Zu viele Ergebnisse, zeige die ersten 10."
+            toomanymsg = f"Zu viele Ergebnisse, zeige die ersten {BOOKINGS_SEARCH_MAX}."
             if not error:
-                redis.set(key, pickle.dumps((toomanymsg if toomany else None, entries)), ex=12*3600)
+                redis.set(key, pickle.dumps((toomanymsg if toomany else None, entries)), ex=300)
             if toomany:
                 error = error + toomanymsg if error else toomanymsg
         else:
