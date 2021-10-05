@@ -24,7 +24,7 @@ def button(update: Update, context: CallbackContext) -> None:
     query.answer()
 
     if query.data == 'PHONE':
-        photo_path = 'church/login-help.png'
+        photo_path = 'resources/login-help.png'
         markup = InlineKeyboardMarkup([[InlineKeyboardButton(MARKUP_PC, callback_data='PC')]])
         msg = 'Geh auf die Webseite von Churchtools. ' \
               f'Für die FeG-Karlsruhe ist das <a href="{MAIN_URL}">{MAIN_URL}</a>.\n' \
@@ -34,7 +34,7 @@ def button(update: Update, context: CallbackContext) -> None:
               "Bei Fragen/Problemen kannst du mir gerne ne Nachricht schreiben: @craeckie"
 
     else:  # PC
-        photo_path = 'church/QR-Photo.jpg'
+        photo_path = 'resources/QR-Photo.jpg'
         markup = InlineKeyboardMarkup([[InlineKeyboardButton(MARKUP_PHONE, callback_data='PHONE')]])
         msg = 'Zum 🔑Einloggen brauchst du den QR-Code für die ChurchTools-App. Die ChurchTools-App selber brauchst du nicht.\n' \
               '(1) Geh auf die Webseite von Churchtools. ' \
@@ -138,7 +138,7 @@ def login(context, update, login_data):
             msg = "Du bist erfolgreich eingeloggt! :)\n" \
                   "Du kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen. " \
                   "Falls da keine Buttons sind, musst den im Bild markierten Knopf drücken."
-            with open('church/logged-in.png', 'rb') as f:
+            with open('resources/logged-in.png', 'rb') as f:
                 context.bot.send_photo(update.message.chat_id, photo=f, caption=msg,
                                parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
         else:
