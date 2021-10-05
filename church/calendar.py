@@ -8,6 +8,7 @@ import telegram
 
 from church import redis
 from church.CalendarBookingParser import CalendarBookingParser
+from church.config import CALENDAR_LIST_DESCRIPTION_LIMIT
 from church.markup import RAUM_ZEIT_MARKUP, mainMarkup, EMPTY_MARKUP
 from church.utils import send_message
 
@@ -102,10 +103,17 @@ def printCalendarEntries(entr, sortByCategory=True, withWeekNumbers=False, print
             if cur_category != e['category']:
                 cur_part += f"<code>{e['category']}</code>\n"
                 cur_category = e['category']
+            description = e['descr']
+            if len(description) > CALENDAR_LIST_DESCRIPTION_LIMIT:
+                description = description[:CALENDAR_LIST_DESCRIPTION_LIMIT - 5] + '..'
             new_text = "{start}-{end}: {descr}".format(start=start.strftime("%H:%M"), end=end_str, room=e['category'],
-                                                       descr=e['descr'][:30])
+                                                       descr=description)
             if e['event_id']:
-                new_text += f" /A{e['event_id']}"
+                event_id = e['event_id']
+                booking = e['booking']
+                if 'csevents' in booking and event_id in booking['csevents'] \
+                    and 'eventTemplate' in booking['csevents'][event_id] and booking['csevents'][event_id]['service_texts']:
+                    new_text += f" /A{e['event_id']}"
         else:
             new_text = "{start}-{end} <code>{room}</code>: {descr}".format(start=start.strftime("%H:%M"), end=end_str,
                                                                            room=e['category'], descr=e['descr'][:30])
