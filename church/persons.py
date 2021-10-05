@@ -145,7 +145,7 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
         
     if extraData:
         if 'guid' in extraData:
-            t += f'\nChatte mit {p["vorname"]} auf <a href="https://matrix.to/#/@ct_{extraData["guid"].lower()}:chat.church.tools">Matrix!</a>'
+            t += f'\nChatte mit {p["vorname"]} auf <a href="https://matrix.to/#/@ct_{extraData["guid"].lower()}:chat.church.tools">Matrix!</a> (oder in der ChurchTools-App)'
     return t
 
 def printPersonGroups(login_data, person):
