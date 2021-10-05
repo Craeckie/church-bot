@@ -54,35 +54,25 @@ class BookingParser:
 
     def searchEntries(self, text):
         text = text.lower()
-        key = get_cache_key(self.login_data, self.cache_key + ':search', text)
-        entry_data = self._loadCache(key)
-        if entry_data is None:
-            entries = []
-            error, bookings = self.getEntries(dayRange=365)
-            # (error, data) = self._ajaxResponse()
-            # if error or not data:
-            #     return None
-            toomany = False
-            for booking in bookings:
-                if 'status_id' in booking and int(booking['status_id']) == 99:
-                    continue
-                actual_booking = booking['booking']
+        entries = []
+        error, bookings = self.getEntries(dayRange=365)
+        toomany = False
+        for booking in bookings:
+            if 'status_id' in booking and int(booking['status_id']) == 99:
+                continue
+            actual_booking = booking['booking']
 
-                if any(key in actual_booking and actual_booking[key] and text in actual_booking[key].lower()
-                       for key in self._get_search_keys()):
-                    #entries += self._parseBookings(booking)
-                    entries.append(booking)
-                    if len(entries) >= BOOKINGS_SEARCH_MAX:
-                        toomany = True
-                        break
-            # entries = self.sortBookings(entries)
-            toomanymsg = f"Zu viele Ergebnisse, zeige die ersten {BOOKINGS_SEARCH_MAX}."
-            if not error:
-                redis.set(key, pickle.dumps((toomanymsg if toomany else None, entries)), ex=300)
-            if toomany:
-                error = error + toomanymsg if error else toomanymsg
-        else:
-            error, entries = entry_data
+            if any(key in actual_booking and actual_booking[key] and text in actual_booking[key].lower()
+                   for key in self._get_search_keys()):
+                #entries += self._parseBookings(booking)
+                entries.append(booking)
+                if len(entries) >= BOOKINGS_SEARCH_MAX:
+                    toomany = True
+                    break
+        # entries = self.sortBookings(entries)
+        toomanymsg = f"Zu viele Ergebnisse, zeige die ersten {BOOKINGS_SEARCH_MAX}."
+        if toomany:
+            error = error + toomanymsg if error else toomanymsg
         return error, entries
 
     def _loadCache(self, key):
