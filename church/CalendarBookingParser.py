@@ -111,3 +111,6 @@ class CalendarBookingParser(BookingParser):
             'booking': booking,
             'event_id': event_id,
         }
+
+    def _get_search_keys(self):
+        return ['bezeichnung', 'notizen', 'modified_name', 'booking_location', 'booking_note']
