@@ -82,12 +82,12 @@ def printRaeumeEntries(login_data, entr, withWeekNumbers=False, sortByRoom=False
 def parseRaeumeByText(login_data, search):
     parser = RoomBookingParser(login_data)
     error, entr = parser.searchEntries(search)
-    if not entr:
-        return ["Konnte Daten nicht abrufen!"]
+    if error and not entr:
+        return ["Konnte Daten nicht abrufen!\n" + error]
+    elif not entr:
+        return ["Keine Buchungen gefunden!"]
 
     text = printRaeumeEntries(login_data, entr, withWeekNumbers=False, sortByRoom=False, printHeute=False, fullDate=True)
-    if not text:
-        text = ["Keine Buchungen gefunden!"]
     text[0] = f"Suche nach <b>{search}</b>:\n" + text[0]
     if error:
         text[-1] = text[-1] + f'\n<i>{error}</i>'

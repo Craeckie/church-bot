@@ -65,9 +65,10 @@ class BookingParser:
             for booking in bookings:
                 if 'status_id' in booking and int(booking['status_id']) == 99:
                     continue
+                actual_booking = booking['booking']
 
-                if any(key in booking and booking[key] and text in booking[key].lower()
-                       for key in ['descr', 'room', 'place', 'note']): # ['text', 'bezeichnung', 'ort', 'notizen']):
+                if any(key in actual_booking and actual_booking[key] and text in actual_booking[key].lower()
+                       for key in self._get_search_keys()):
                     #entries += self._parseBookings(booking)
                     entries.append(booking)
                     if len(entries) >= 10:
@@ -194,3 +195,5 @@ class BookingParser:
             'room_num': int(booking['resource_id']),
             'booking': booking,
         }
+    def _get_search_keys(self):
+        return []

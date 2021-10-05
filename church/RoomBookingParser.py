@@ -105,3 +105,6 @@ class RoomBookingParser(BookingParser):
 
     room_all_sorting.update({k: v + 5 for k, v in room_neben_sorting.items()})
     room_all_sorting.update({k: v + 30 for k, v in room_rest_sorting.items()})
+
+    def _get_search_keys(self):
+        return ['text', 'location', 'note', 'person_name']
