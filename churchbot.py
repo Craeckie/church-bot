@@ -14,7 +14,7 @@ from church.birthdays import parseGeburtstage
 from church.bot import MQBot
 from church.calendar import parseCalendarByText, calendar
 from church.event import parse_signup, list_events, agenda, print_event
-from church.groups import group
+from church.groups import group, print_group_members
 from church.login_utils import button, photo, check_login
 from church.markup import MARKUP_ROOMS, MARKUP_CALENDAR, MARKUP_BIRTHDAYS, MARKUP_PEOPLE, MARKUP_GROUPS, MARKUP_SONGS, \
     MARKUP_EVENTS, mainMarkup, RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP, EMPTY_MARKUP, RAUM_ZEIT_MARKUP_SIMPLE, \
@@ -121,6 +121,7 @@ def message(update, context):
         mPersonContact = re.match('/C([0-9]+)', text)
         mPersonGroup = re.match('/PG([0-9]+)', text)
         mGroup = re.match('/G([0-9]+)', text)
+        mGroupMember = re.match('/GP([0-9]+)', text)
         mEvent = re.match('/E([0-9]+)', text)
         mQR = re.match('/Q([0-9]+)', text)
         mAgenda = re.match('/A([0-9]+)', text)
@@ -172,6 +173,16 @@ def message(update, context):
                 send_message(context, update, msg, None, mainMarkup())
         elif mGroup:
             group(context, update, text, mainMarkup(), login_data=login_data)
+        elif mGroupMember:
+            (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+            (errorMaster, masterData) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
+            if not data or not masterData:
+                parts = ['<i>Konnte Daten nicht abrufen!</i>']
+            else:
+                g_id = mGroupMember.group(1)
+                parts = print_group_members(login_data, masterData=masterData, persons=data, g_id=g_id)
+            for part in parts:
+                send_message(context, update, part, telegram.ParseMode.HTML, mainMarkup())
         elif mEvent:
             g_id = mEvent.group(1)
             print_event(context, update, g_id, login_data, mainMarkup())
