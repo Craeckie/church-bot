@@ -59,7 +59,7 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
                             if 'groupmembers' in persons[p_id]
                             if g_id in persons[p_id]['groupmembers']]
         if len(persons_in_group) <= 20:
-            parts += print_group_members(login_data, masterData, persons, g_id, persons_in_group)
+            parts += print_group_members(login_data, masterData, persons, g_id)
         else:
             parts.append(f'<b>Teilnehmer</b>: <b>/GP{g_id}</b>\n')
 
@@ -333,6 +333,7 @@ def group(context, update, text, reply_markup, login_data):
     except Exception as e:
         msg = f"Failed!\nException: {e}"
         logger.error(msg)
+        send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
         return
 
     # Combine lines to messages
