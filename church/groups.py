@@ -14,6 +14,7 @@ from church.utils import get_cache_key, loadCache, send_message
 
 logger = logging.getLogger(__name__)
 
+
 def _printEntry(dict, key, description='', italic=False, bold=False):
     t = ""
     if key in dict and dict[key] and dict[key] != 'null':
@@ -230,9 +231,9 @@ def findGroup(login_data, name):
                     t[-1] += '\n\n'
                 url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
                 if len(matches) == 1:
-                    #t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
+                    # t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
                     t += printGroup(login_data=login_data, group=g, persons=persons, masterData=data, list=False,
-                                        onlyName=False)
+                                    onlyName=False)
                     img_id = g['groupimage_id']
                     if img_id:
                         try:
@@ -287,6 +288,7 @@ def next_signup_field(signup_info):
     else:
         return None
 
+
 def get_field_info(field, cancel_markup):
     markup = [[]]
     name = field["name"]
@@ -320,12 +322,12 @@ def get_qrcode(login_data, group_id):
         return b
     else:
         return None
-    #(error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin/{p_id}/pdf', login_data=login_data, isAjax=False,
+    # (error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin/{p_id}/pdf', login_data=login_data, isAjax=False,
     #                                timeout=None)
-    #url = None
-    #if data and 'data' in data and data['data'] and 'url' in data['data'] and data['data']['url']:
+    # url = None
+    # if data and 'data' in data and data['data'] and 'url' in data['data'] and data['data']['url']:
     #    url = data['data']['url']
-    #return url
+    # return url
 
 
 def group(context, update, text, reply_markup, login_data):
@@ -355,7 +357,7 @@ def group(context, update, text, reply_markup, login_data):
         msg = messages[0]
         if has_photo:
             context.bot.send_photo(update.message.chat_id, photo=res['photo'], caption=msg,
-                           parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
+                                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
             messages.pop(0)
     except Exception as e:
         msg = f"Failed!\nException: {e}"
