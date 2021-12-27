@@ -41,57 +41,27 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
         cur_part += "\n"
         cur_part += f"Typ: <b>{type}</b>\n"
     cur_part += _printEntry(group, description='Zeit: ', key='treffzeit', bold=True)
-    cur_part += _printEntry(group, description='Max. Teilnehmer:', key='max_teilnehmer')
+    cur_part += _printEntry(group, description='Max. Teilnehmer: ', key='max_teilnehmer', bold=True)
     cur_part += "\n"
     parts.append(cur_part)
 
-    cur_part = _printEntry(group, key='notiz', italic=False)
+    cur_part = '<pre>Beschreibung</pre>\n\n'
+    cur_part += _printEntry(group, key='notiz', italic=False)
     cur_part = re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', cur_part)
     cur_part = cur_part.replace('<br/>', '')
     if list and len(cur_part) > 120:
         cur_part = cur_part[:100] + "..."
     parts.append(cur_part)
 
-    mem_count = 0
     if persons:
-        members_by_status = {}
-        for p_id in persons:
-            p = persons[p_id]
-            if 'groupmembers' in p:
-                p_groups = p['groupmembers']
-                if g_id in p_groups:
-                    p_group = p_groups[g_id]
-                    status_id = p_group['groupmemberstatus_id']
-                    registered_by_key = 'registered_by'
-                    registered_by = None
-                    if registered_by_key in p_group:
-                        registered_by_id = p_group[registered_by_key]
-                        if registered_by_id and registered_by_id != p['p_id']:
-                            if registered_by_id in persons:
-                                registered_by_person = persons[p_group[registered_by_key]]
-                                registered_by = ' '.join(registered_by_person[k] for k in ['vorname', 'name'])
-                            else:
-                                registered_by = f'N/A (/P{registered_by_id})'
-                    person_text = _printPerson(login_data, p, personList=True, onlyName=True, additionalName=f'von {registered_by}' if registered_by else None)
-                    if status_id in members_by_status:
-                        members_by_status[status_id].append(person_text)
-                    else:
-                        members_by_status[status_id] = [person_text]
-                    mem_count += 1
-    cur_part = ''
-    if mem_count == 0:
-        cur_part += '<i>Keine Teilnehmer gefunden</i>\n'
-    else:
-        for status_id, people in members_by_status.items():
-            typeStatus = masterData['grouptypeMemberstatus'][status_id]['bezeichnung']
-            cur_part += f'<pre>{typeStatus}</pre>\n'
-            max_people = 5 if list else 100
-            cur_part += '\n'.join(people[:max_people])
-            if len(people) > max_people:
-                cur_part += "..."
-            cur_part += '\n'
-            parts.append(cur_part)
-            cur_part = '\n'
+        persons_in_group = [persons[p_id]
+                            for p_id in persons
+                            if 'groupmembers' in persons[p_id]
+                            if g_id in persons[p_id]['groupmembers']]
+        if len(persons_in_group) <= 20:
+            parts += print_group_members(login_data, masterData, persons, g_id)
+        else:
+            parts.append(f'<b>Teilnehmer</b>: <b>/GP{g_id}</b>\n')
 
     if 'places' in group and group['places']:
         cur_part = "\n<pre>Treffpunkte</pre>\n"
@@ -126,6 +96,63 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
             cur_part += "\n<i>Konnte Veranstaltungsdaten nicht abrufen: " + error + "</i>"
         parts.append(cur_part)
 
+    return parts
+
+
+def print_group_members(login_data, masterData, persons, g_id):
+    max_people = 100
+    persons_in_group = [persons[p_id]
+                        for p_id in persons
+                        if 'groupmembers' in persons[p_id]
+                        if g_id in persons[p_id]['groupmembers']]
+    persons_in_group = sorted(persons_in_group, key=lambda p: p['vorname'])
+    persons_in_group = sorted(persons_in_group, key=lambda p: p['name'])
+    mem_count = len(persons_in_group)
+    members_by_status = {}
+    for person in persons_in_group:
+        p_group = person['groupmembers'][g_id]
+        status_id = p_group['groupmemberstatus_id']
+        registered_by_key = 'registered_by'
+        registered_by = None
+        if registered_by_key in p_group:
+            registered_by_id = p_group[registered_by_key]
+            if registered_by_id and registered_by_id != person['p_id']:
+                if registered_by_id in persons:
+                    registered_by_person = persons[p_group[registered_by_key]]
+                    registered_by = ' '.join(registered_by_person[k] for k in ['vorname', 'name'])
+                else:
+                    registered_by = f'N/A (/P{registered_by_id})'
+        if status_id in members_by_status:
+            members_by_status[status_id].append((person, registered_by))
+        else:
+            members_by_status[status_id] = [(person, registered_by)]
+
+    parts = []
+    if mem_count == 0:
+        parts.append('<i>Keine Teilnehmer gefunden</i>\n')
+    else:
+        for status_id, people in members_by_status.items():
+            typeStatus = masterData['grouptypeMemberstatus'][status_id]['bezeichnung']
+            cur_part = f'<pre>{typeStatus}</pre>\n'
+            last_letter = ''
+            num_cur_part = 0
+            for person, registered_by in people:
+                person_text = _printPerson(login_data, person, personList=True, onlyName=True,
+                                           additionalName=f'von {registered_by}' if registered_by else None)
+                if len(people) > 50:
+                    new_letter = person['name'][0]
+                    if new_letter != last_letter:
+                        cur_part += f'<b>{new_letter}</b>\n'
+                        last_letter = new_letter
+                cur_part += person_text + '\n'
+                num_cur_part += 1
+
+                if num_cur_part > max_people:
+                    parts.append(cur_part)
+                    cur_part = ''
+                    num_cur_part = 0
+            cur_part += '\n'
+            parts.append(cur_part)
     return parts
 
 
@@ -306,6 +333,7 @@ def group(context, update, text, reply_markup, login_data):
     except Exception as e:
         msg = f"Failed!\nException: {e}"
         logger.error(msg)
+        send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
         return
 
     # Combine lines to messages
