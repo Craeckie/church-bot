@@ -47,6 +47,8 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
 
     cur_part = '<pre>Beschreibung</pre>\n\n'
     cur_part += _printEntry(group, key='notiz', italic=False)
+    cur_part = re.sub('\[([^\]]+)\]\((https?://[^)]+)\)', '<a href="\g<2>">\g<1></a>', cur_part)
+    cur_part = cur_part.replace('\\*', '*')
     cur_part = re.sub('\*\*(.*?)\*\*', '<b>\g<1></b>', cur_part)
     cur_part = cur_part.replace('<br/>', '')
     if list and len(cur_part) > 120:
