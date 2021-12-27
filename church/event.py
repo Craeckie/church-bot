@@ -133,8 +133,8 @@ def list_events(context, login_data, reply_markup, update):
             else:
                 for cur_group in cur_groups:
                     msg += ''.join(groups.printGroup(login_data=login_data, group=cur_group, persons=persons,
-                                             masterData=masterData, list=len(cur_groups) > 1,
-                                             onlyName=len(cur_groups) > 2)) + '\n'
+                                             masterData=masterData, list=True,
+                                             onlyName=True)) + '\n'
             msg += '\n<pre>Angemeldete</pre>\n'
             numActive = 0
             for eventID in reversed(activeEventIDs):
