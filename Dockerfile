@@ -24,4 +24,6 @@ RUN chown -R www-data:www-data ./
 
 USER www-data
 
+STOPSIGNAL SIGINT
+
 CMD ["python", "-m", "churchbot"]
