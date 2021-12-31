@@ -33,10 +33,13 @@ from telegram.ext import Updater, Filters, MessageHandler, messagequeue as mq, C
 from church import songs, groups, redis
 
 logging.basicConfig(level=logging.INFO,
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(mesparseGeburtstagesage)s')
+                    format='%(name)s - %(levelname)s - %(message)s')
 
 logger = logging.getLogger(__name__)
 
+# Don't show debug messages
+tglogger = logging.getLogger("telegram.bot")
+tglogger.setLevel(logging.INFO)
 
 
 def message(update, context):
