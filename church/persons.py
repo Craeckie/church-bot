@@ -344,12 +344,13 @@ def searchPerson(login_data, text):
                 }
         except phonenumbers.NumberParseException as e:  # not a phone number
             logger.warning(str(e))
+
+    # Search by text
     res = {
         'success': False,
         'msg': f'Niemand gefunden mit dem Namen "{text}" :('
     }
     searchNameParts = [t.lower() for t in text.split(' ')]
-    partialMatches = []
     fullMatches = []
     for n in data:
         person = data[n]
@@ -359,19 +360,24 @@ def searchPerson(login_data, text):
         if all(s in nameParts for s in searchNameParts):
             logger.debug(f"Found full match: {person}")
             fullMatches.append(person)
-        elif any(s in p for p in nameParts for s in searchNameParts):
-            logger.debug(f"Found partial match: {person}")
-            partialMatches.append(person)
-        if len(fullMatches) + len(partialMatches) > 50:
+        elif len(searchNameParts) > 1 and (
+                searchNameParts[0] in nameParts[0] and searchNameParts[1] in nameParts[1] or
+                searchNameParts[1] in nameParts[0] and searchNameParts[0] in nameParts[0]):
+            fullMatches.append(person)
+        # elif any(s in p for p in nameParts for s in searchNameParts):
+        #    logger.debug(f"Found partial match: {person}")
+        #    partialMatches.append(person)
+        if len(fullMatches) > 50:
             res['msg'] = f"Found more then 50 people. Please refine your search phrase"
             return res
 
     if fullMatches:
         res['success'] = True
         if len(fullMatches) == 1:
+            p_id = fullMatches[0]['p_id']
             (error, extraData) = getAjaxResponse("db", "getPersonDetails",
                                                  login_data=login_data, timeout=24 * 3600,
-                                                 id=fullMatches[0]['p_id'])
+                                                 id=p_id)
             if extraData:
                 photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=extraData)
                 if photo_url:
@@ -386,25 +392,57 @@ def searchPerson(login_data, text):
             res['success'] = True
         else:
             res['msg'] = _printPersons(login_data, fullMatches)
-    elif partialMatches:
-        res['success'] = True
-        if len(partialMatches) == 1:
-            (error, extraData) = getAjaxResponse("db", "getPersonDetails",
-                                                 login_data=login_data, timeout=24 * 3600,
-                                                 id=fullMatches[0]['p_id'])
-            if extraData:
-                photo_url, photo_raw = _getPhoto(login_data, partialMatches[0], extraData)
-                if photo_url:
-                    res['photo_url'] = photo_url
-                if photo_raw:
-                    res['photo_raw'] = photo_raw
+    else:
+        (error, data) = getAjaxResponse(f'search?query={text}', login_data=login_data, isAjax=False,
+                                        timeout=24 * 3600)
+        matches = []
+        if data and 'data' in data:
+            results = data['data']
+            for result in results:
+                if 'domainType' in result and result['domainType'] == 'person':
+                    if 'domainIdentifier' in result:
+                        p_id = result['domainIdentifier']
+                        matches.append(p_id)
+        if matches:
+            texts = []
+            if len(matches) == 1:
+                p_id = matches[0]
+                (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
+                                                id=p_id)
+                if data:
+                    photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=data)
+                    if photo_url:
+                        res['photo_url'] = photo_url
+                    if photo_raw:
+                        res['photo_raw'] = photo_raw
+                    contact = _getContact(data, photo_raw)
+                    if contact:
+                        res['contact'] = contact
+                res['msg'] = _printPerson(login_data, p_id, personList=False, onlyName=False)
+            else:
+                for p_id in matches:
+                    texts.append(_printPerson(login_data, p_id, personList=len(matches) > 1, onlyName=len(matches) > 5))
+                res['msg'] = '\n\n'.join(texts)
 
-            contact = _getContact(p=partialMatches[0], photo_raw=photo_raw)
-            if contact:
-                res['contact'] = contact
-            res.update(_getPersonInfo(login_data, partialMatches[0], extraData=extraData))
-        else:
-            res['msg'] = _printPersons(login_data, partialMatches)
+    # elif partialMatches:
+    #    res['success'] = True
+    #    if len(partialMatches) == 1:
+    #        (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+    #                                             login_data=login_data, timeout=24 * 3600,
+    #                                             id=fullMatches[0]['p_id'])
+    #        if extraData:
+    #            photo_url, photo_raw = _getPhoto(login_data, partialMatches[0], extraData)
+    #            if photo_url:
+    #                res['photo_url'] = photo_url
+    #            if photo_raw:
+    #                res['photo_raw'] = photo_raw
+
+    #        contact = _getContact(p=partialMatches[0], photo_raw=photo_raw)
+    #        if contact:
+    #            res['contact'] = contact
+    #        res.update(_getPersonInfo(login_data, partialMatches[0], extraData=extraData))
+    #    else:
+    #        res['msg'] = _printPersons(login_data, partialMatches)
     if error:
         res['msg'] += f'\n<i>{error}</i>'
     return res
