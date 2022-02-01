@@ -271,6 +271,7 @@ if __name__ == '__main__':
     mqbot = MQBot(os.environ.get('BOT_TOKEN'),
                   request=request,
                   mqueue=q)
+    mqbot.logger = tglogger
     updater = telegram.ext.updater.Updater(bot=mqbot)
     # updater.dispatcher.add_handler(CommandHandler('start', start))
 

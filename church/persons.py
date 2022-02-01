@@ -50,7 +50,7 @@ _all2detail = {
 
 def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False, additionalName=''):
     groups = p['groupmembers'] if 'groupmembers' in p else None
-    if not personList and not onlyName and extraData is None:
+    if extraData is None and (type(p) is str or not personList and not onlyName):
         p_id = p['p_id'] if 'p_id' in p else p
         (error, extraData) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
                                              id=p_id)
