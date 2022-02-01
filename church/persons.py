@@ -147,11 +147,12 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
 
     if 'telefonhandy' in p or 'telefonprivat' in p:
         t += f'<i>Kontakt speichern: </i>/C{p["id"]}'
-        
+
     if extraData:
         if 'guid' in extraData:
             t += f'\nChatte mit {p["vorname"]} auf <a href="https://matrix.to/#/@ct_{extraData["guid"].lower()}:chat.church.tools">Matrix!</a> (oder in der ChurchTools-App)'
     return t
+
 
 def printPersonGroups(login_data, person):
     from church.groups import printGroup
@@ -234,13 +235,12 @@ def _getContact(p, photo_raw):
     }
 
 
-def _getPhoto(login_data, p, extraData):
-    id = p['p_id']
+def _getPhoto(login_data, extraData):
     photo = None
     if 'imageurl' in extraData and extraData['imageurl']:
         img_id = extraData['imageurl']
         url = urljoin(login_data['url'], f'?q=public/filedownload&filename={img_id}&type=image')
-        #return (url, None)
+        # return (url, None)
         try:
             r = requests.get(url)
             if r.ok:
@@ -255,7 +255,7 @@ def _getPhoto(login_data, p, extraData):
             else:
                 return url, None
         except Exception as e:
-            logger.warning('Couldn\'t download photo: ' + e)
+            logger.warning('Couldn\'t download photo: ' + str(e))
             return url, None
     return None, None
 
@@ -269,7 +269,7 @@ def _getPersonInfo(login_data, person, extraData=None):
 
     photo_raw = None
     if extraData:
-        photo_url, photo_raw = _getPhoto(login_data, person, extraData)
+        photo_url, photo_raw = _getPhoto(login_data, extraData)
         if photo_url:
             res['photo_url'] = photo_url
         if photo_raw:
@@ -319,8 +319,8 @@ def searchPerson(login_data, text):
                     handy = _parseNumber(person['telefonhandy'])
                     geschäftlich = _parseNumber(person['telefongeschaeftlich'])
                     if (privat and privat == cur) or \
-                        (handy and handy == cur) or \
-                        (geschäftlich and geschäftlich == cur):
+                            (handy and handy == cur) or \
+                            (geschäftlich and geschäftlich == cur):
                         logger.info(f"Found: {person}")
                         matches.append(person)
                     # elif handy:
@@ -373,7 +373,7 @@ def searchPerson(login_data, text):
                                                  login_data=login_data, timeout=24 * 3600,
                                                  id=fullMatches[0]['p_id'])
             if extraData:
-                photo_url, photo_raw = _getPhoto(login_data=login_data, p=fullMatches[0], extraData=extraData)
+                photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=extraData)
                 if photo_url:
                     res['photo_url'] = photo_url
                 if photo_raw:
@@ -419,8 +419,9 @@ def person(context, update, text, reply_markup, login_data, contact=False):
         else:
             if 'photo_raw' in res:
                 try:
-                    context.bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']), caption=res['msg'],
-                                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
+                    context.bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']),
+                                           caption=res['msg'],
+                                           parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
                 except Exception as e:
                     res[
                         'msg'] += f'\n<i>Couldn\'t send photo :(\nYou can open it </i><a href="{res["photo_url"]}">here</a>.'
