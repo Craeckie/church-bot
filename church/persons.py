@@ -16,6 +16,7 @@ from church.utils import send_message
 
 logger = logging.getLogger(__name__)
 
+
 def _parseNumber(num):
     if num:
         try:
@@ -48,13 +49,13 @@ _all2detail = {
 
 
 def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False, additionalName=''):
-    data = None
     groups = p['groupmembers'] if 'groupmembers' in p else None
-    if not personList and not onlyName:
-        (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
-                                        id=p['p_id'])
-    if data:
-        p = dict([(k, v) for (k, v) in data.items() if v])
+    if not personList and not onlyName and extraData is None:
+        p_id = p['p_id'] if 'p_id' in p else p
+        (error, extraData) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
+                                             id=p_id)
+    if extraData:
+        p = dict([(k, v) for (k, v) in extraData.items() if v])
     else:
         p = dict([(_all2detail[k], v) if k in _all2detail.keys() else (k, v) for k, v in p.items() if v])
     t = getPersonLink(login_data, p['id'])
