@@ -103,40 +103,42 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
         for rel in p['rels']:
             rel_id = rel['vater_id'] if rel['vater_id'] != p['id'] else rel['kind_id']
             (error, rel_person) = getAjaxResponse("db", "getPersonDetails",
-                                                       login_data=login_data,
-                                                       timeout=24 * 3600,
-                                                       id=rel_id)
+                                                  login_data=login_data,
+                                                  timeout=24 * 3600,
+                                                  id=rel_id)
             if rel_person:
                 rel_name = f'{rel_person["vorname"]} {rel_person["name"]}'
+            else:
+                rel_name = f'{rel["name"]}'
 
-                rel_type = rel['beziehungstyp_id']
-                if rel_type == '1':
-                    if rel['vater_id'] == rel_id: # is parent of current person
-                        if gender_key in rel_person and rel_person['geschlecht_no']:
-                            t += 'Vater' if rel_person[gender_key] == '1' else \
-                                 'Mutter' if rel_person[gender_key] == '2' else \
-                                 'Elternteil'
-                        else:
-                            t += 'Elternteil'
-                    elif rel['kind_id'] == rel_id: # is child of current person
-                        if gender_key in rel_person and rel_person['geschlecht_no']:
-                            t += 'Sohn' if rel_person[gender_key] == '1' else \
-                                 'Tochter' if rel_person[gender_key] == '2' else \
-                                 'Kind'
-                        else:
-                            t += 'Kind'
+            rel_type = rel['beziehungstyp_id']
+            if rel_type == '1':
+                if rel['vater_id'] == rel_id:  # is parent of current person
+                    if rel_person and gender_key in rel_person and rel_person['geschlecht_no']:
+                        t += 'Vater' if rel_person[gender_key] == '1' else \
+                            'Mutter' if rel_person[gender_key] == '2' else \
+                                'Elternteil'
+                    else:
+                        t += 'Elternteil'
+                elif rel['kind_id'] == rel_id:  # is child of current person
+                    if rel_person and gender_key in rel_person and rel_person['geschlecht_no']:
+                        t += 'Sohn' if rel_person[gender_key] == '1' else \
+                            'Tochter' if rel_person[gender_key] == '2' else \
+                                'Kind'
+                    else:
+                        t += 'Kind'
 
-                    t += f': {getPersonLink(login_data, rel_id)}{rel_name}</a> /P{rel_id}'
-                elif rel_type == '2':
-                    t += f'Verheiratet mit {getPersonLink(login_data, rel_id)}{rel_name}</a> /P{rel_id}'
-                    wedding_key = 'hochzeitsdatum'
-                    if extraData and wedding_key in extraData and extraData[wedding_key]:
-                        try:
-                            birthday = datetime.strptime(extraData[wedding_key].split(' ')[0], '%Y-%m-%d')
-                            t += f' (seit {birthday.strftime("%d.%m.%Y")})'
-                        except:
-                            pass
-                t += '\n'
+                t += f': {getPersonLink(login_data, rel_id)}{rel_name}</a> /P{rel_id}'
+            elif rel_type == '2':
+                t += f'Verheiratet mit {getPersonLink(login_data, rel_id)}{rel_name}</a> /P{rel_id}'
+                wedding_key = 'hochzeitsdatum'
+                if extraData and wedding_key in extraData and extraData[wedding_key]:
+                    try:
+                        birthday = datetime.strptime(extraData[wedding_key].split(' ')[0], '%Y-%m-%d')
+                        t += f' (seit {birthday.strftime("%d.%m.%Y")})'
+                    except:
+                        pass
+            t += '\n'
         t += '\n'
 
     # Groups
