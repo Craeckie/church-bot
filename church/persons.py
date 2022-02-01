@@ -60,6 +60,8 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
         p = dict([(_all2detail[k], v) if k in _all2detail.keys() else (k, v) for k, v in p.items() if v])
     t = getPersonLink(login_data, p['id'])
     t += f"{p['vorname']} {p['name']}"
+    if 'int_name' in p:
+        t += f" ({p['int_name']})"
     if 'spitzname' in p:
         t += f" ({p['spitzname']})"
     gender_key = 'geschlecht_no'
