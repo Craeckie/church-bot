@@ -33,7 +33,7 @@ class RoomBookingParser(BookingParser):
                 sortDict[b['room_num']] if b['room_num'] in sortDict.keys() else 999, b['start']))
         else:
             entries = sorted(entries, key=lambda b: (
-                b['start'].date(), sortDict[b['room_num']] if b['room_num'] in sortDict.keys() else 999, b['start']))
+                b['start'], sortDict[b['room_num']] if b['room_num'] in sortDict.keys() else 999, b['start']))
         return entries
 
     def getAllBookings(self):
