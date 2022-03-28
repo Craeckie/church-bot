@@ -123,7 +123,7 @@ def download(login_data, song_id, file_id):
                         file_hash = file['filename']
                         url = urljoin(login_data['url'], f'?q=public/filedownload&filename={file_hash}')
                         name = file['bezeichnung']
-                        logger.info(f"Url: {url}\nFile: {name}")
+                        logger.debug(f"Url: {url}\nFile: {name}")
                         return {
                             'file': url,
                             'msg': name,

@@ -32,10 +32,11 @@ from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, Filters, MessageHandler, messagequeue as mq, CallbackQueryHandler
 from church import songs, groups, redis
 
+logger = logging.getLogger(__name__)
+
 logging.basicConfig(level=logging.INFO,
                     format='%(name)s - %(levelname)s - %(message)s')
 
-logger = logging.getLogger(__name__)
 
 # Don't show debug messages
 tglogger = logging.getLogger("telegram.bot")

@@ -105,7 +105,7 @@ def login(login_data=None, updateCache=False, login_token=False):
                 token_url = f'whoami?login_token={login_key}&user_id={login_data["personid"]}'
                 data = cc_api(token_url, cookies, login_data=login_data, returnJson=True)
                 if data['status'] == 'success' and ('message' not in data or '401: Unauthorized' not in data['message']):
-                    logger.info(data)
+                    logger.debug(data)
                     redis.set(key, pickle.dumps(cookies.get_dict()))
                 else:
                     logger.warning(data)
@@ -127,7 +127,7 @@ def download_file(login_data, url):
             return False, res
         try:
             # path = 'temp_file'
-            logger.info(f"Donwloading {url}")
+            logger.debug(f"Donwloading {url}")
             r = requests.get(url, cookies=res, stream=True, timeout=20)
             if r.status_code == 200:
                 res = {}

@@ -293,20 +293,20 @@ def searchPerson(login_data, text):
         }
     elif re.match(regex_id, text):
         pid = re.match(regex_id, text).group(2)
-        logger.info(f"Searching for id {pid}")
+        logger.debug(f"Searching for id {pid}")
         for n in data:
             person = data[n]
             if not person:
                 continue
             if person['p_id'] == pid:
-                logger.info("Found it!")
+                logger.debug("Found it!")
                 res = _getPersonInfo(login_data, person)
                 if error:
                     res['msg'] += f'\n<i>{error}</i>'
                 return res
 
     elif re.match(regex_phone, text):
-        logger.info(f"Searching through {len(data)} persons..")
+        logger.debug(f"Searching through {len(data)} persons..")
         try:
             cur = _parseNumber(text)
             if cur:
@@ -321,7 +321,7 @@ def searchPerson(login_data, text):
                     if (privat and privat == cur) or \
                             (handy and handy == cur) or \
                             (geschäftlich and geschäftlich == cur):
-                        logger.info(f"Found: {person}")
+                        logger.debug(f"Found: {person}")
                         matches.append(person)
                     # elif handy:
                     #    logger.info(f"Not {person['vorname']} {person['name']}: {handy}")
