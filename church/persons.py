@@ -317,7 +317,8 @@ def searchPerson(login_data, text):
                         continue
                     privat = _parseNumber(person['telefonprivat'])
                     handy = _parseNumber(person['telefonhandy'])
-                    geschäftlich = _parseNumber(person['telefongeschaeftlich'])
+                    geschäftlich = _parseNumber(person['telefongeschaeftlich']) \
+                        if 'telefongeschaeftlich' in person else None
                     if (privat and privat == cur) or \
                             (handy and handy == cur) or \
                             (geschäftlich and geschäftlich == cur):
