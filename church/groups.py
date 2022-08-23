@@ -8,7 +8,7 @@ import telegram
 import qrcode
 
 from church import redis
-from church.persons import _printPerson
+from church.persons import _printPerson, _personGroupAdditionalInfo
 from church.ChurchToolsRequests import getAjaxResponse
 from church.utils import get_cache_key, loadCache, send_message
 
@@ -104,6 +104,13 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
 
 def print_group_members(login_data, masterData, persons, g_id):
     max_people = 100
+    (error, block_data) = getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
+    group_signup_infos = None
+    try:
+        if block_data:
+            group_signup_infos = block_data['blocks']['managemymembership']['data']['chosable']
+    except:
+        pass
     persons_in_group = [persons[p_id]
                         for p_id in persons
                         if 'groupmembers' in persons[p_id]
@@ -142,6 +149,9 @@ def print_group_members(login_data, masterData, persons, g_id):
             for person, registered_by in people:
                 person_text = _printPerson(login_data, person, personList=True, onlyName=True,
                                            additionalName=f'von {registered_by}' if registered_by else None)
+                answer_kv = _personGroupAdditionalInfo(g_id, person['p_id'], group_signup_infos)
+                for key, value in answer_kv.items():
+                    person_text += f'\n * {key}: {value}'
                 if len(people) > 50:
                     new_letter = person['name'][0]
                     if new_letter != last_letter:
