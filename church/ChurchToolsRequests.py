@@ -86,12 +86,9 @@ def login(login_data=None, updateCache=False, login_token=False):
             logger.info(f"Getting new login token for {login_data['personid']}")
             # oder /api/whoami?loginstr=..&id=..:
             login_url = urljoin(login_data['url'], f"?loginstr={login_data['token']}&id={login_data['personid']}")
-            resp = requests.get(login_url, cookies=cookies)
+            resp = requests.get(login_url, cookies=cookies, allow_redirects=False)
 
-            if 'Der verwendete Login-Link ist nicht mehr aktuell und kann deshalb nicht mehr verwendet werden.' in resp.text:
-                redis.delete(get_user_login_key(login_data['telegramid']))
-                return False, 'Login fehlgeschlagen, versuchs es mit einem neuen QR-Code.'
-            else: # get new login key & cookies using login token
+            if resp.status_code == 302:
                 data = cc_api(f'persons/{login_data["personid"]}/logintoken', cookies=cookies, login_data=login_data, returnJson=True)
                 if data['status'] == 'success' and ('message' not in data or '401: Unauthorized' not in data['message']):
                     inner_data = data['data']
@@ -100,6 +97,9 @@ def login(login_data=None, updateCache=False, login_token=False):
                     redis.set(key, pickle.dumps(cookies.get_dict()))
                 else:
                     return False, 'Login fehlgeschlagen, bitte log dich neu ein.'
+            else: #if 'Der verwendete Login-Link ist nicht mehr aktuell und kann deshalb nicht mehr verwendet werden.' in resp.text:
+                redis.delete(get_user_login_key(login_data['telegramid']))
+                return False, 'Login fehlgeschlagen, versuchs es mit einem neuen QR-Code.'
         else: # get new cookies using login key
             try:
                 token_url = f'whoami?login_token={login_key}&user_id={login_data["personid"]}'
