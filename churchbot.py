@@ -25,7 +25,7 @@ from church.ChurchToolsRequests import get_user_login_key, login, getAjaxRespons
 from church.songs import song
 from church.utils import send_message, mode_key
 
-locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
+#locale.setlocale(locale.LC_ALL, 'de_DE.UTF-8')
 
 import telegram
 from telegram import ReplyKeyboardMarkup
