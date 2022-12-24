@@ -60,7 +60,7 @@ def printRaeumeEntries(login_data, entr, withWeekNumbers=False, sortByRoom=False
                 cur_part += f"<code>{e['room']}</code>\n"
                 cur_room = e['room']
             new_text = "{start}-{end}: {descr}".format(start=start.strftime("%H:%M"), end=end_str, room=e['room'],
-                                                       descr=e['descr'][:30])
+                                                       descr=e['descr'][:40])
         else:
             new_text = "{start}-{end} <code>{room}</code>: {descr}".format(start=start.strftime("%H:%M"), end=end_str,
                                                                            room=e['room'], descr=e['descr'][:30])
@@ -78,6 +78,7 @@ def printRaeumeEntries(login_data, entr, withWeekNumbers=False, sortByRoom=False
     if cur_part:
         parts.append(cur_part)
     return parts
+
 
 def parseRaeumeByText(login_data, search):
     parser = RoomBookingParser(login_data)
