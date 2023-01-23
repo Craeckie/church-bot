@@ -108,8 +108,10 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
                                                   id=rel_id)
             if rel_person:
                 rel_name = f'{rel_person["vorname"]} {rel_person["name"]}'
-            else:
+            elif 'name' in rel:
                 rel_name = f'{rel["name"]}'
+            else:
+                rel_name = f'(Zugriff auf Person {rel_id} wurde verweigert)'
 
             rel_type = rel['beziehungstyp_id']
             if rel_type == '1':
@@ -163,6 +165,13 @@ def printPersonGroups(login_data, person):
         t += '<i>Keine Gruppen gefunden.</i>'
         return t
     (error, master_data) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
+    (error, block_data) = getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
+    group_signup_infos = None
+    try:
+        if block_data:
+            group_signup_infos = block_data['blocks']['managemymembership']['data']['chosable']
+    except:
+        pass
     if master_data:
         group_types = {}
         for group_id in groups:
@@ -178,10 +187,31 @@ def printPersonGroups(login_data, person):
             for group in groups:
                 parts = printGroup(login_data, group, list=True, onlyName=True)
                 t += f'- {parts[0]}\n'
+                answer_kv = _personGroupAdditionalInfo(group['id'], person['p_id'], group_signup_infos)
+                for key, value in answer_kv.items():
+                    t += f' * {key}: {value}\n'
         t += '\n'
     else:
         t += '<i>Konnte Gruppenteilnahme nicht abrufen</i>\n'
     return t
+
+
+def _personGroupAdditionalInfo(group_id, person_id, group_signup_infos):
+    answer_kv = {}
+    if group_signup_infos:
+        if group_id in group_signup_infos:
+            if 'addfields' in group_signup_infos[group_id]:
+                for field_id in group_signup_infos[group_id]['addfields']:
+                    field = group_signup_infos[group_id]['addfields'][field_id]
+                    if 'data' in field:
+                        if person_id in field['data'] and person_id in field['data']:
+                            answer_kv[field['fieldname']] = field['data'][person_id]['value']
+            #try:
+            #    fields = json_parse(f'{group_id}.addfields.[*].data.{person_id}.value').find(group_signup_infos)
+            #    print(fields)
+            #except:
+            #    pass
+    return answer_kv
 
 
 def _printPersons(login_data, ps):

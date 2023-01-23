@@ -179,8 +179,9 @@ def agenda(context, update, login_data, a_id, reply_markup):
 
                 masterService = masterData['service']
                 masterServiceGroups = masterData['servicegroup']
-                servicegroups = [None] * max(
-                    [int(masterServiceGroups[x]['sortkey']) for x in masterServiceGroups])
+                servicegroups = [None] * (
+                        max([int(masterServiceGroups[x]['sortkey']) for x in masterServiceGroups]) + 1
+                )
                 for service in event['services']:
                     if service['name']:
                         name = service['name']
