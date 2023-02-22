@@ -40,10 +40,21 @@ class BookingParser:
             entries = []
             for booking, rules, start, duration in bookings:
                 # print(list(rules))
-                for rule in rules.between(
-                        datetime.datetime.combine(datetime.datetime.now().date() + datetime.timedelta(days=dayOffset), datetime.time(0, 0)),
-                        datetime.datetime.combine(datetime.datetime.now().date() + datetime.timedelta(days=dayOffset + dayRange),
-                                         datetime.time(23, 59)), inc=True):
+                search_range_start = datetime.datetime.combine(datetime.datetime.now().date() + datetime.timedelta(days=dayOffset), datetime.time(0, 0))
+                search_range_end = datetime.datetime.combine(datetime.datetime.now().date() + datetime.timedelta(days=dayOffset + dayRange), datetime.time(23, 59))
+
+                # Check if previous range overlaps
+                rule = rules.before(search_range_start, inc=False)
+                if rule:
+                    rule_start = datetime.datetime.combine(rule, start.time())
+                    rule_end = rule_start + duration
+                    if rule_end > search_range_start:
+                        for day in range(min((rule_end.date() - search_range_start.date()).days, dayRange) + 1):
+                            r = Range(start=search_range_start + datetime.timedelta(days=day), end=rule_start + duration)
+                            entries.append(self._make_entry(r, booking))
+
+                # Check if rule is inside of search range
+                for rule in rules.between(search_range_start, search_range_end, inc=True):
                     rule_start = datetime.datetime.combine(rule, start.time())
                     r = Range(start=rule_start, end=rule_start + duration)
                     entries.append(self._make_entry(r, booking))
