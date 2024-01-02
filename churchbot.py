@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO,
                     format='%(name)s - %(levelname)s - %(message)s')
+logging.getLogger('httpx').setLevel(logging.WARNING)
 
 
 # Don't show debug messages

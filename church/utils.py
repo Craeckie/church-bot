@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def get_cache_key(login_data, *args, useDate=False, usePerson=False, **kwargs):
     parts = list(args) + [login_data['url']]
     if usePerson:
-        parts.append(login_data['personid'])
+        parts.append(str(login_data['personid']))
     if useDate:
         curDate = str(datetime.today().date())
         parts.append(curDate)

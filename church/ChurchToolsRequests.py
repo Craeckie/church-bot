@@ -56,7 +56,7 @@ def cc_api(path, cookies, login_data, returnJson=True, params=None):
 
 
 def get_user_login_key(user_id):
-    return f'login:{user_id}'
+    return f'login:{str(user_id)}'
 
 
 def login(login_data=None, updateCache=False, login_token=False):
