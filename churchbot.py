@@ -19,7 +19,7 @@ from church.login_utils import button, photo, check_login
 from church.markup import MARKUP_ROOMS, MARKUP_CALENDAR, MARKUP_BIRTHDAYS, MARKUP_PEOPLE, MARKUP_GROUPS, MARKUP_SONGS, \
     MARKUP_EVENTS, mainMarkup, RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP, EMPTY_MARKUP, RAUM_ZEIT_MARKUP_SIMPLE, \
     RAUM_ZEIT_MARKUP_EXTENDED
-from church.persons import person, printPersonGroups, searchPerson
+from church.persons import person, printPersonGroups
 from church.rooms import parseRaeumeByTime, parseRaeumeByText, room_markup
 from church.ChurchToolsRequests import get_user_login_key, login, getAjaxResponse
 from church.songs import song
@@ -50,6 +50,9 @@ def message(update, context):
     login_key = get_user_login_key(user_id)
     login_data_str = redis.get(login_key)
     text = update.message.text
+    
+    # include personal information?
+    include_pi = bool(os.environ.get('BOT_INCLUDE_PERSONAL_INFORMATION', default=False))
 
     if login_data_str:
         login_data = json.loads(login_data_str)
@@ -96,7 +99,7 @@ def message(update, context):
             else:
                 send_message(context, update, res, None, mainMarkup())
         elif mode == 'person':
-            success = person(context, update, text, mainMarkup(), login_data)
+            success = person(context, update, text, mainMarkup(), login_data, include_pi=include_pi)
             if success is False:
                 redis.set(mode_key(update), mode)
         elif mode == 'group':
@@ -155,9 +158,9 @@ def message(update, context):
             file_id = m2.group(2)
             song(context, update, file_id, login_data, mainMarkup(), song_id)
         elif mPerson:
-            person(context, update, text, mainMarkup(), login_data)
+            person(context, update, text, mainMarkup(), login_data, include_pi=include_pi)
         elif mPersonContact:
-            person(context, update, text, mainMarkup(), login_data, contact=True)
+            person(context, update, text, mainMarkup(), login_data, include_pi=include_pi, contact=True)
         elif mPersonGroup:
             try:
                 (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)

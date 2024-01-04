@@ -12,7 +12,7 @@ import vobject
 from telegram import Contact
 
 from church.ChurchToolsRequests import getAjaxResponse, logger, getPersonLink
-from church.utils import send_message
+from church.utils import send_message, pi_notice
 
 logger = logging.getLogger(__name__)
 
@@ -214,12 +214,18 @@ def _personGroupAdditionalInfo(group_id, person_id, group_signup_infos):
     return answer_kv
 
 
-def _printPersons(login_data, ps):
+def _printPersons(login_data, ps, include_pi=False):
     texts = []
     ps = sorted(ps, key=lambda p: p['vorname'])
     ps = sorted(ps, key=lambda p: p['name'])
+    if include_pi:
+        use_list = len(ps) > 1
+        use_name = len(ps) > 5
+    else:
+        use_list = True
+        use_name = True
     for p in ps:
-        texts.append(_printPerson(login_data, p, personList=len(ps) > 1, onlyName=len(ps) > 5))
+        texts.append(_printPerson(login_data, p, personList=use_list, onlyName=use_name))
     return '\n\n'.join(texts)
 
 
@@ -290,7 +296,11 @@ def _getPhoto(login_data, extraData):
     return None, None
 
 
-def _getPersonInfo(login_data, person, extraData=None):
+def _getPersonInfo(login_data, person, include_pi=False, extraData=None):
+    if not include_pi:
+        res = {'msg': _printPerson(login_data, p=person, personList=True, onlyName=True)}
+        res['msg'] += pi_notice()
+        return res
     if not extraData:
         (error, extraData) = getAjaxResponse("db", "getPersonDetails",
                                              login_data=login_data, timeout=24 * 3600,
@@ -311,7 +321,7 @@ def _getPersonInfo(login_data, person, extraData=None):
     return res
 
 
-def searchPerson(login_data, text):
+def searchPerson(login_data, text, include_pi=False):
     (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
 
     regex_id = '/(P|C|PG)([0-9]+)'
@@ -330,7 +340,7 @@ def searchPerson(login_data, text):
                 continue
             if person['p_id'] == pid:
                 logger.debug("Found it!")
-                res = _getPersonInfo(login_data, person)
+                res = _getPersonInfo(login_data, person, include_pi=include_pi)
                 if error:
                     res['msg'] += f'\n<i>{error}</i>'
                 return res
@@ -357,11 +367,11 @@ def searchPerson(login_data, text):
                     # elif handy:
                     #    logger.info(f"Not {person['vorname']} {person['name']}: {handy}")
                 if len(matches) == 1:
-                    return _getPersonInfo(login_data, matches[0])
+                    return _getPersonInfo(login_data, matches[0], include_pi=include_pi)
                 elif len(matches) > 1:
                     return {
                         'success': True,
-                        'msg': _printPersons(login_data, matches)
+                        'msg': _printPersons(login_data, matches, include_pi=include_pi)
                     }
                 else:
                     return {
@@ -406,23 +416,25 @@ def searchPerson(login_data, text):
         res['success'] = True
         if len(fullMatches) == 1:
             p_id = fullMatches[0]['p_id']
-            (error, extraData) = getAjaxResponse("db", "getPersonDetails",
-                                                 login_data=login_data, timeout=24 * 3600,
-                                                 id=p_id)
-            if extraData:
-                photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=extraData)
-                if photo_url:
-                    res['photo_url'] = photo_url
-                if photo_raw:
-                    res['photo_raw'] = photo_raw
+            extraData = None
+            if include_pi:
+                (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+                                                    login_data=login_data, timeout=24 * 3600,
+                                                    id=p_id)
+                if extraData:
+                    photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=extraData)
+                    if photo_url:
+                        res['photo_url'] = photo_url
+                    if photo_raw:
+                        res['photo_raw'] = photo_raw
 
-            contact = _getContact(fullMatches[0], photo_raw)
-            if contact:
-                res['contact'] = contact
-            res.update(_getPersonInfo(login_data, fullMatches[0], extraData=extraData))
+                contact = _getContact(fullMatches[0], photo_raw)
+                if contact:
+                    res['contact'] = contact
+            res.update(_getPersonInfo(login_data, fullMatches[0], include_pi=include_pi, extraData=extraData))
             res['success'] = True
         else:
-            res['msg'] = _printPersons(login_data, fullMatches)
+            res['msg'] = _printPersons(login_data, fullMatches, include_pi=include_pi)
     else:
         (error, data) = getAjaxResponse(f'search?query={text}', login_data=login_data, isAjax=False,
                                         timeout=24 * 3600)
@@ -438,21 +450,29 @@ def searchPerson(login_data, text):
             texts = []
             if len(matches) == 1:
                 p_id = matches[0]
-                (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
-                                                id=p_id)
-                if data:
-                    photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=data)
-                    if photo_url:
-                        res['photo_url'] = photo_url
-                    if photo_raw:
-                        res['photo_raw'] = photo_raw
-                    contact = _getContact(data, photo_raw)
-                    if contact:
-                        res['contact'] = contact
-                res['msg'] = _printPerson(login_data, p_id, personList=False, onlyName=False)
+                if include_pi:
+                    (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
+                                                    id=p_id)
+                    if data:
+                        photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=data)
+                        if photo_url:
+                            res['photo_url'] = photo_url
+                        if photo_raw:
+                            res['photo_raw'] = photo_raw
+                        contact = _getContact(data, photo_raw)
+                        if contact:
+                            res['contact'] = contact
+                    res['msg'] = _printPerson(login_data, p_id, personList=False, onlyName=False)
+                else:
+                    res['msg'] = _printPerson(login_data, p_id, personList=True, onlyName=True)
             else:
+                use_list = True
+                use_name = True
+                if include_pi:
+                    use_list = len(matches) > 1
+                    use_name = len(matches) > 5
                 for p_id in matches:
-                    texts.append(_printPerson(login_data, p_id, personList=len(matches) > 1, onlyName=len(matches) > 5))
+                    texts.append(_printPerson(login_data, p_id, personList=use_list, onlyName=use_name))
                 res['msg'] = '\n\n'.join(texts)
 
     # elif partialMatches:
@@ -479,9 +499,9 @@ def searchPerson(login_data, text):
     return res
 
 
-def person(context, update, text, reply_markup, login_data, contact=False):
+def person(context, update, text, reply_markup, login_data, include_pi=False, contact=False):
     try:
-        res = searchPerson(login_data, text)
+        res = searchPerson(login_data, text, include_pi=include_pi)
         logger.debug(res)
         if contact and 'contact' in res:
             context.bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)

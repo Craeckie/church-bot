@@ -34,3 +34,6 @@ def send_message(context, update, text, parse_mode, reply_markup):
 
 def mode_key(update):
     return f'{update.message.from_user.id}:mode'
+
+def pi_notice():
+    return '\n<i>Für persönliche Daten bitte die <a href="https://www.church.tools/de/product/app">ChurchTools-App</a> verwenden</i>'
