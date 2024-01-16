@@ -121,7 +121,6 @@ def message(update, context):
         elif mode == 'signup':
             parse_signup(context, update, login_data, mainMarkup(), text)
 
-
     else:  # no special mode
         m1 = re.match('([A-Za-z0-9äöü ]+): ([A-Za-zäöü]+)', text)
         m2 = re.match('/dl_([0-9]+)_([0-9]+)', text)

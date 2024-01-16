@@ -104,7 +104,7 @@ class CalendarBookingParser(BookingParser):
             'end': r.end,
             'descr': booking['bezeichnung'],
             'accepted': True,
-            'place': booking['ort'].strip() if 'ort' in booking else None,
+            'place': booking['ort'].strip() if 'ort' in booking and booking['ort'] else None,
             'category': self.categories[booking['category_id']]['bezeichnung'],
             'category_id': booking['category_id'],
             'note': booking['notizen'] if 'notizen' in booking else None,
