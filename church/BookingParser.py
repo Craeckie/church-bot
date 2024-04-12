@@ -143,9 +143,14 @@ class BookingParser:
                 rules.rrule(rrule(MONTHLY, dtstart=start_date, until=repeat_until, interval=repeat_freq))
             elif repeat_id == 32:  # monthly by weekday
                 repeat_option_id = int(booking['repeat_option_id']) if booking['repeat_option_id'] else 0
-                if repeat_option_id == 6:
+                nthweekOfMonth = repeat_option_id
+                if repeat_option_id == 6: # last weekday of each month
+                    byweekday = weekday(start.weekday())(-1)
+                elif repeat_option_id <= 5:
+                    byweekday = weekday(start.weekday())(+nthweekOfMonth)
+                else:
                     raise NotImplementedError(
-                        "Error: repeat_option_id == 6 not implemented! Booking:\n%s" % json.dumps(booking, indent=2))
+                        f"Error: repeat_option_id == {repeat_option_id} not implemented! Booking:\n%s" % json.dumps(booking, indent=2))
 
                 # nthweekOfMonth = (start.day - 1) // 7 + 1
                 nthweekOfMonth = repeat_option_id
@@ -154,7 +159,7 @@ class BookingParser:
                              dtstart=start_date,
                              until=repeat_until,
                              interval=repeat_freq,
-                             byweekday=weekday(start.weekday())(+nthweekOfMonth))
+                             byweekday=byweekday)
                 # print(rule)
                 rules.rrule(rule)
             elif repeat_id == 365:
