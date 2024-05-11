@@ -60,7 +60,14 @@ async def _printPerson(login_data, p, extraData=None, personList=False, onlyName
     else:
         p = dict([(_all2detail[k], v) if k in _all2detail.keys() else (k, v) for k, v in p.items() if v])
     t = getPersonLink(login_data, p['id'])
-    t += f"{p['vorname']} {p['name']}"
+    name = []
+    if 'vorname' in p:
+        name.append(p['vorname'])
+    if 'name' in p:
+        name.append(p['name'])
+    if len(name) == 0:
+        name.append('N/A')
+    t += ' '.join(name)
     if 'int_name' in p:
         t += f" ({p['int_name']})"
     if 'spitzname' in p:
@@ -410,7 +417,7 @@ async def searchPerson(login_data, text, include_pi=False):
         #    logger.debug(f"Found partial match: {person}")
         #    partialMatches.append(person)
         if len(fullMatches) > 50:
-            res['msg'] = f"Found more then 50 people. Please refine your search phrase"
+            res['msg'] = f"Found more than 50 people. Please refine your search phrase"
             return res
 
     if fullMatches:
@@ -466,7 +473,7 @@ async def searchPerson(login_data, text, include_pi=False):
                     res['msg'] = await _printPerson(login_data, p_id, personList=False, onlyName=False)
                 else:
                     res['msg'] = await _printPerson(login_data, p_id, personList=True, onlyName=True)
-            else:
+            elif len(matches) <= 50:
                 use_list = True
                 use_name = True
                 if include_pi:
@@ -475,6 +482,9 @@ async def searchPerson(login_data, text, include_pi=False):
                 for p_id in matches:
                     texts.append(await _printPerson(login_data, p_id, personList=use_list, onlyName=use_name))
                 res['msg'] = '\n\n'.join(texts)
+            else:
+                res['msg'] = f"Found more than 50 people. Please refine your search phrase"
+                return res
 
     # elif partialMatches:
     #    res['success'] = True
