@@ -59,7 +59,7 @@ def get_user_login_key(user_id):
     return f'login:{str(user_id)}'
 
 
-def login(login_data=None, updateCache=False, login_token=False):
+async def login(login_data=None, updateCache=False, login_token=False):
     key = get_cache_key(login_data, 'login_cookies', usePerson=True)
     cookies_pickle = redis.get(key)
     cookies = pickle.loads(cookies_pickle) if cookies_pickle else None
@@ -118,11 +118,11 @@ def login(login_data=None, updateCache=False, login_token=False):
     return True, cookies
 
 
-def download_file(login_data, url):
+async def download_file(login_data, url):
     key = get_cache_key(login_data, 'song:download', url)
     res = loadCache(key)
     if not res:
-        (success, res) = login(login_data)
+        (success, res) = await login(login_data)
         if not success:
             return False, res
         try:
@@ -165,7 +165,7 @@ def getPersonLink(login_data, id):
     return f'<a href="{url}">'
 
 
-def getAjaxResponse(*args, login_data, isAjax=True, timeout=10, additionalCacheKey=None, **params):
+async def getAjaxResponse(*args, login_data, isAjax=True, timeout=10, additionalCacheKey=None, **params):
     key = get_cache_key(login_data, *args, additionalCacheKey=additionalCacheKey, **params)
     if timeout:
         resp_str = redis.get(key)
@@ -174,7 +174,7 @@ def getAjaxResponse(*args, login_data, isAjax=True, timeout=10, additionalCacheK
         relogin = False
         while True:
 
-            (success, cookies) = login(login_data, updateCache=relogin)
+            (success, cookies) = await login(login_data, updateCache=relogin)
             if not success:
                 return cookies, None
             try:

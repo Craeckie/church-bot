@@ -9,11 +9,11 @@ from church.ChurchToolsRequests import getAjaxResponse, getPersonLink
 from church.utils import get_cache_key, loadCache
 
 
-def parseGeburtstage(login_data):
+async def parseGeburtstage(login_data):
     key = get_cache_key(login_data, 'birthdays', useDate=True)
     msg = loadCache(key)
     if not msg:
-        (error, data) = getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
+        (error, data) = await getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
 
         if not data:
             print(error)

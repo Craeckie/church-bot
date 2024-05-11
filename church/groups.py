@@ -5,6 +5,7 @@ from io import BytesIO
 from urllib.parse import urljoin
 
 import telegram
+from telegram.constants import ParseMode
 import qrcode
 
 from church import redis
@@ -81,7 +82,7 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
 
     # https://feg-karlsruhe.church.tools/api/publicgroups/1036
     if not list:
-        (error, data) = getAjaxResponse(f'publicgroups/{g_id}', login_data=login_data, isAjax=False, timeout=600)
+        (error, data) = await getAjaxResponse(f'publicgroups/{g_id}', login_data=login_data, isAjax=False, timeout=600)
         if data and 'data' in data:
             # TODO: WTH?
             data = data['data']
@@ -347,7 +348,7 @@ def group(context, update, text, reply_markup, login_data):
     except Exception as e:
         msg = f"Failed!\nException: {e}"
         logger.error(msg)
-        send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
+        send_message(context, update, msg, ParseMode.HTML, reply_markup)
         return
 
     # Combine lines to messages
@@ -367,10 +368,10 @@ def group(context, update, text, reply_markup, login_data):
         msg = messages[0]
         if has_photo:
             context.bot.send_photo(update.message.chat_id, photo=res['photo'], caption=msg,
-                                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
+                                   parse_mode=ParseMode.HTML, reply_markup=reply_markup)
             messages.pop(0)
     except Exception as e:
         msg = f"Failed!\nException: {e}"
         logger.error(msg)
     for msg in messages:
-        send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
+        send_message(context, update, msg, ParseMode.HTML, reply_markup)

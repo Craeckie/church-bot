@@ -25,13 +25,13 @@ class BookingParser:
     def sortBookings(self, entries):
         return sorted(entries, key=lambda b: (b['start'].date(), b['start']))
 
-    def getEntries(self, dayRange=8, dayOffset=0, **kwargs):
+    async def getEntries(self, dayRange=8, dayOffset=0, **kwargs):
         key = get_cache_key(self.login_data, self.cache_key, dayRange=dayRange, dayOffset=dayOffset, useDate=True, **kwargs)
         logger.debug(key)
         entries = self._loadCache(key)
         error = None
         if entries is None:
-            (error, bookings) = self.getAllBookings()
+            (error, bookings) = await self.getAllBookings()
             #logger.debug(bookings)
             if not bookings:
                 return error if error else 'Konnte Buchungen nicht laden', None
@@ -98,18 +98,18 @@ class BookingParser:
             entr.append(self._make_entry(r, booking))
         return entr
 
-    def getAllBookings(self, *args, **kwargs):
+    async def getAllBookings(self, *args, **kwargs):
         raise NotImplementedError('getAllBookings is not implemented!')
 
-    def getBooking(self, key, value):
-        (error, entries) = self.getAllBookings()
+    async def getBooking(self, key, value):
+        (error, entries) = await self.getAllBookings()
         for (booking, rules, start, duration) in entries:
             if booking[key] == value:
                 return booking
         return None
 
-    def _ajaxResponse(self, **kwargs):
-        return getAjaxResponse(self.module, self.func, login_data=self.login_data, **kwargs)
+    async def _ajaxResponse(self, **kwargs):
+        return await getAjaxResponse(self.module, self.func, login_data=self.login_data, **kwargs)
 
     def _date_parse(self, t):
         return datetime.datetime.strptime(t, "%Y-%m-%d %H:%M:%S")

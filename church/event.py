@@ -6,6 +6,7 @@ from textwrap import indent
 
 import telegram
 from telegram import ReplyKeyboardMarkup
+from telegram.constants import ParseMode
 
 from church import groups, redis
 from church.ChurchToolsRequests import getAjaxResponse, getPersonLink
@@ -14,7 +15,7 @@ from church.utils import send_message, loadCache, mode_key
 
 logger = logging.getLogger(__name__)
 
-def parse_signup(context, update, login_data, reply_markup, text):
+async def parse_signup(context, update, login_data, reply_markup, text):
     p_id = int(login_data['personid'])
     signup_key = groups.get_signup_key(p_id)
     signup_info = loadCache(signup_key)
@@ -44,42 +45,42 @@ def parse_signup(context, update, login_data, reply_markup, text):
                     }
                 ]
             }
-            (error, data) = getAjaxResponse(f'publicgroups/{g_id}/signup', login_data=login_data, isAjax=False,
+            (error, data) = await getAjaxResponse(f'publicgroups/{g_id}/signup', login_data=login_data, isAjax=False,
                                             timeout=None, **params)
             if not data:
                 send_message(context, update,
                              "<b>Anmeldung fehlgeschlagen! Fehler:\n</b>" + error,
-                             telegram.ParseMode.HTML, reply_markup)
+                             ParseMode.HTML, reply_markup)
             elif data and 'translatedMessage' in data and data['translatedMessage']:
                 send_message(context, update, "<b>Anmeldung fehlgeschlagen! Fehler:\n</b>" + data['translatedMessage'],
-                             telegram.ParseMode.HTML, reply_markup)
+                             ParseMode.HTML, reply_markup)
             else:
                 send_message(context, update, "<b>Erfolgreich angemeldet!</b>",
-                             telegram.ParseMode.HTML, reply_markup)
+                             ParseMode.HTML, reply_markup)
                 #url = groups.get_qrcode(login_data, g_id)
                 qr = groups.get_qrcode(login_data, g_id)
                 if qr:
                     try:
                         context.bot.send_photo(update.effective_chat.id, photo=qr,
                                           caption="Hier ist dein QR-Code fürs Check-In",
-                                          parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                                          parse_mode=ParseMode.HTML, reply_markup=reply_markup,
                                           timeout=30)
                         # context.bot.send_document(update.effective_chat.id, document=url,
                         #                   caption="Hier ist dein QR-Code fürs Check-In",
-                        #                   parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup,
+                        #                   parse_mode=ParseMode.HTML, reply_markup=reply_markup,
                         #                   timeout=30)
                     except Exception as e:
                         send_message(context, update,
                                      "<i>Konnte QR-Code nicht senden :(</i>\n" + str(e),
-                                     telegram.ParseMode.HTML,
+                                     ParseMode.HTML,
                                      reply_markup)
                 else:
                     send_message(context, update,
                                  "<i>Konnte QR-Code nicht abrufen :(</i>\n" + error,
-                                 telegram.ParseMode.HTML,
+                                 ParseMode.HTML,
                                  reply_markup)
         else:
-            send_message(context, update, "<b>Anmeldung abgebrochen</b>", telegram.ParseMode.HTML,
+            send_message(context, update, "<b>Anmeldung abgebrochen</b>", ParseMode.HTML,
                          reply_markup)
     else:
         field = groups.next_signup_field(signup_info)
@@ -102,13 +103,13 @@ def parse_signup(context, update, login_data, reply_markup, text):
             markup = ReplyKeyboardMarkup([[MARKUP_SIGNUP_YES, MARKUP_SIGNUP_NO]])
         redis.set(signup_key, pickle.dumps(signup_info))
         redis.set(mode_key(update), 'signup')
-        send_message(context, update, msg, telegram.ParseMode.HTML, markup)
+        send_message(context, update, msg, ParseMode.HTML, markup)
 
 
-def list_events(context, login_data, reply_markup, update):
-    (errorBlock, blockData) = getAjaxResponse("home", "getBlockData", login_data=login_data, timeout=None)
-    (errorMaster, masterData) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
-    (errorPerson, persons) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+async def list_events(context, login_data, reply_markup, update):
+    (errorBlock, blockData) = await getAjaxResponse("home", "getBlockData", login_data=login_data, timeout=None)
+    (errorMaster, masterData) = await getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
+    (errorPerson, persons) = await getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
     grouplist = masterData['groups']
     if blockData and masterData and persons:
         try:
@@ -144,7 +145,7 @@ def list_events(context, login_data, reply_markup, update):
                 numActive += 1
             if numActive == 0:
                 msg += "<i>Keine Veranstaltungen gefunden</i>\n"
-            send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
+            send_message(context, update, msg, ParseMode.HTML, reply_markup)
         except Exception as e:
             msg = f"Failed!\nException: {e}"
             logger.error(msg)
@@ -163,16 +164,16 @@ def list_events(context, login_data, reply_markup, update):
             send_message(context, update, "Konnte Daten nicht abrufen", None, reply_markup)
 
 
-def agenda(context, update, login_data, a_id, reply_markup):
+async def agenda(context, update, login_data, a_id, reply_markup):
     try:
-        (error, data) = getAjaxResponse(f'events/{a_id}/agenda', login_data=login_data, isAjax=False, timeout=600)
+        (error, data) = await getAjaxResponse(f'events/{a_id}/agenda', login_data=login_data, isAjax=False, timeout=600)
         if data and 'data' in data:
             data = data['data']
 
             try:
-                (error, masterData) = getAjaxResponse("service", "getMasterData", login_data=login_data, timeout=None)
+                (error, masterData) = await getAjaxResponse("service", "getMasterData", login_data=login_data, timeout=None)
 
-                (error, eventData) = getAjaxResponse("service", "getAllEventData", login_data=login_data, timeout=600)
+                (error, eventData) = await getAjaxResponse("service", "getAllEventData", login_data=login_data, timeout=600)
                 event = eventData[a_id]
 
                 msg = f'<b>{event["bezeichnung"]}</b>\n'
@@ -250,7 +251,7 @@ def agenda(context, update, login_data, a_id, reply_markup):
                     msg += part + "\n"
         else:  # no data
             msg = '<i>Für diese Veranstaltung gibt es keinen Ablaufplan</i>'
-        send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
+        send_message(context, update, msg, ParseMode.HTML, reply_markup)
     except Exception as e:
         eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
         msg = f"Failed!\nException: {eMsg}"
@@ -258,9 +259,9 @@ def agenda(context, update, login_data, a_id, reply_markup):
         send_message(context, update, msg, None, reply_markup)
 
 
-def print_event(context, update, g_id, login_data, reply_markup):
+async def print_event(context, update, g_id, login_data, reply_markup):
     p_id = int(login_data['personid'])
-    (error, data) = getAjaxResponse(f'publicgroups/{g_id}/token', login_data=login_data, isAjax=False, timeout=None,
+    (error, data) = await getAjaxResponse(f'publicgroups/{g_id}/token', login_data=login_data, isAjax=False, timeout=None,
                                     personId=p_id, clicked=[p_id])
     # TODO: WTH?
     if data and 'data' in data and 'token' in data['data'] and data['data']['token']:
@@ -271,7 +272,7 @@ def print_event(context, update, g_id, login_data, reply_markup):
             'group': g_id
         }
 
-        (error, data) = getAjaxResponse(f'publicgroups/{g_id}/form?token={token}', login_data=login_data, isAjax=False,
+        (error, data) = await getAjaxResponse(f'publicgroups/{g_id}/form?token={token}', login_data=login_data, isAjax=False,
                                         timeout=None)
         if data and 'data' in data and 'group' in data['data']:
             # TODO: WTH?
@@ -309,19 +310,19 @@ def print_event(context, update, g_id, login_data, reply_markup):
                     markup = ReplyKeyboardMarkup(field_markup)
                 redis.set(signup_key, pickle.dumps(signup_info))
                 redis.set(mode_key(update), 'signup')
-                send_message(context, update, msg, telegram.ParseMode.HTML, markup)
+                send_message(context, update, msg, ParseMode.HTML, markup)
             except Exception as e:
                 msg += "<i>Leider ist folgender Fehler aufgetreten:\n" + str(e)
-                send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
+                send_message(context, update, msg, ParseMode.HTML, reply_markup)
         else:
             msg = "<i>Konnte Anmelde-Informationen nicht abrufen"
             if error:
                 msg += ":\n" + error
             msg += "</i>"
-            send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
+            send_message(context, update, msg, ParseMode.HTML, reply_markup)
     else:
         msg = "<i>Konnte Anmelde-Token nicht abrufen"
         if error:
             msg += ":\n" + error
         msg += "</i>"
-        send_message(context, update, msg, telegram.ParseMode.HTML, reply_markup)
+        send_message(context, update, msg, ParseMode.HTML, reply_markup)

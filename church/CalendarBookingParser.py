@@ -30,8 +30,8 @@ class CalendarBookingParser(BookingParser):
     #         entries, toomany = entry_data
     #     return entries, toomany
 
-    def getAllBookings(self):
-        categories, cat_params = self._getCategories()
+    async def getAllBookings(self):
+        categories, cat_params = await self._getCategories()
         if not cat_params:
             return categories, None # categories is error message
         self.categories = categories
@@ -39,7 +39,7 @@ class CalendarBookingParser(BookingParser):
         key = get_cache_key(self.login_data, self.cache_key, useDate=True)
         entries = self._loadCache(key)
         if not entries:
-            (error, data) = self._ajaxResponse(**cat_params)
+            (error, data) = await self._ajaxResponse(**cat_params)
 
             if not data:
                 return error, data
@@ -55,11 +55,11 @@ class CalendarBookingParser(BookingParser):
             return error, entries
         return None, entries
 
-    def _getCategories(self):
+    async def _getCategories(self):
         key = get_cache_key(self.login_data, self.cache_key + 'master_data')
         cat_data = self._loadCache(key)
         if not cat_data:
-            (error, data) = super()._ajaxResponse(func='getMasterData', timeout=None)
+            (error, data) = await super()._ajaxResponse(func='getMasterData', timeout=None)
             if not data:
                 return error, data
             categories = data['category']

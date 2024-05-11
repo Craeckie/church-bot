@@ -8,6 +8,7 @@ from pyzbar.pyzbar import decode
 from pyzbar.wrapper import ZBarSymbol
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 from telegram.ext import CallbackContext
+from telegram.constants import ParseMode
 
 from church import ChurchToolsRequests, redis
 from church.ChurchToolsRequests import get_user_login_key
@@ -16,12 +17,12 @@ from church.utils import send_message
 from church.markup import MARKUP_PC, MARKUP_PHONE, mainMarkup, LOGIN_MARKUP, MAIN_URL
 
 
-def button(update: Update, context: CallbackContext) -> None:
+async def button(update: Update, context: CallbackContext) -> None:
     query = update.callback_query
 
     # CallbackQueries need to be answered, even if no notification to the user is needed
     # Some clients may have trouble otherwise. See https://core.telegram.org/bots/api#callbackquery
-    query.answer()
+    await query.answer()
 
     if query.data == 'PHONE':
         photo_path = 'resources/login-help.png'
@@ -50,33 +51,33 @@ def button(update: Update, context: CallbackContext) -> None:
 
     with open(photo_path, 'rb') as f:
         if query.message.photo:
-            query.edit_message_media(media=InputMediaPhoto(media=f, caption=msg, parse_mode=telegram.ParseMode.HTML))
+            await query.edit_message_media(media=InputMediaPhoto(media=f, caption=msg, parse_mode=ParseMode.HTML))
         else:
-            query.delete_message()
-            context.bot.send_photo(update.effective_message.chat_id, photo=f, caption=msg,
-                           parse_mode=telegram.ParseMode.HTML)
+            await query.delete_message()
+            await context.bot.send_photo(update.effective_message.chat_id, photo=f, caption=msg,
+                           parse_mode=ParseMode.HTML)
 
 
-def photo(update, context):
+async def photo(update, context):
     # try:
     bot = context.bot
     ps = update.message.photo
     if len(ps) >= 1:
         for p in reversed(ps):
             try:
-                file = context.bot.get_file(p.file_id)
-                file_data = BytesIO(file.download_as_bytearray())
+                file = await context.bot.get_file(p.file_id)
+                file_data = BytesIO(await file.download_as_bytearray())
                 data = decode(Image.open(file_data), symbols=[ZBarSymbol.QRCODE])
                 login_data = None
                 if len(data) >= 1:
                     login_data = parseQRData(data[0].data, update.message.from_user.id)
                 if login_data:
-                    login(context, update, login_data)
+                    await login(context, update, login_data)
                     return
             except Exception as e:
                 pass
 
-    send_message(context, update,
+    await send_message(context, update,
                  "Konnte keinen QR-Code finden.\nBitte erneut versuchen.", None,
                  reply_markup=mainMarkup())
     #
@@ -98,7 +99,7 @@ def parseQRData(data, user_id):
     return login_data
 
 
-def check_login(context, update, text, firstTime=True):
+async def check_login(context, update, text, firstTime=True):
     if text.strip().startswith('churchtools://'):
         m = re.match("churchtools://login\?instanceurl=([^&]+)&loginstring=([^&]+)&personid=([0-9]+)", text)
         if m:
@@ -108,13 +109,13 @@ def check_login(context, update, text, firstTime=True):
                 'personid': m.group(3),
                 'telegramid': update.message.from_user.id,
             }
-            login(context, update, login_data)
+            await login(context, update, login_data)
     elif text.strip().startswith('{') and text.strip().endswith('}'):
         login_data = parseQRData(data=text.strip(), user_id=update.message.from_user.id)
         if login_data:
-            login(context, update, login_data)
+            await login(context, update, login_data)
         else:
-            send_message(context, update,
+            await send_message(context, update,
                          "Die Daten scheinen ungültig zu sein. Sende am besten ein Foto vom QR-Code.", None, reply_markup=LOGIN_MARKUP)
     else:
         if firstTime:
@@ -123,12 +124,12 @@ def check_login(context, update, text, firstTime=True):
                   "Dafür brauchst du einen Laptop oder PC\n"
         else:
             msg = "Leider ist dein Login-Token nicht mehr gültig (hast du dein Passwort geändert?) und du musst dich neu einloggen.\n"
-        send_message(context, update,
+        await send_message(context, update,
                      msg + "Klicke auf den Knopf unten, um mit dem Login fortzufahren:",
-                     parse_mode=telegram.ParseMode.HTML, reply_markup=LOGIN_MARKUP)
+                     parse_mode=ParseMode.HTML, reply_markup=LOGIN_MARKUP)
 
 
-def login(context, update, login_data):
+async def login(context, update, login_data):
     login_key = get_user_login_key(update.message.from_user.id)
     reply_markup = mainMarkup()
     try:
@@ -139,14 +140,14 @@ def login(context, update, login_data):
                   "Du kannst jetzt die Buttons unten nutzen, um Funktionen von ChurchTools aufzurufen. " \
                   "Falls da keine Buttons sind, musst den im Bild markierten Knopf drücken."
             with open('resources/logged-in.png', 'rb') as f:
-                context.bot.send_photo(update.message.chat_id, photo=f, caption=msg,
-                               parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup)
+                await context.bot.send_photo(update.message.chat_id, photo=f, caption=msg,
+                               parse_mode=ParseMode.HTML, reply_markup=reply_markup)
         else:
             redis.delete(login_key)
-            send_message(context, update,
+            await send_message(context, update,
                          "Login fehlgeschlagen!\nBitte versuch es nochmal mit einem neuen Link.", None,
                          reply_markup)
     except Exception as e:
-        send_message(context, update,
+        await send_message(context, update,
                      "Login fehlgeschlagen!\nBitte versuch es nochmal mit einem neuen Link.", None,
                      reply_markup)

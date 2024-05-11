@@ -94,9 +94,9 @@ def parseRaeumeByText(login_data, search):
         text[-1] = text[-1] + f'\n<i>{error}</i>'
     return text
 
-def parseRaeumeByTime(login_data, subset=None, dayRange=7, dayOffset=0):
+async def parseRaeumeByTime(login_data, subset=None, dayRange=7, dayOffset=0):
     parser = RoomBookingParser(login_data)
-    error, entr = parser.getEntries(dayRange, dayOffset, subset=subset, sortByRoom=dayRange == 0)
+    error, entr = await parser.getEntries(dayRange, dayOffset, subset=subset, sortByRoom=dayRange == 0)
     if entr is None:
         return ["Konnte Daten nicht abrufen!"]
 

@@ -8,10 +8,7 @@ import traceback
 import json
 import re
 
-from telegram.utils.request import Request
-
 from church.birthdays import parseGeburtstage
-from church.bot import MQBot
 from church.calendar import parseCalendarByText, calendar
 from church.event import parse_signup, list_events, agenda, print_event
 from church.groups import group, print_group_members
@@ -29,22 +26,23 @@ from church.utils import send_message, mode_key
 
 import telegram
 from telegram import ReplyKeyboardMarkup
-from telegram.ext import Updater, Filters, MessageHandler, messagequeue as mq, CallbackQueryHandler
+from telegram.constants import ParseMode, ChatAction
+from telegram.ext import ApplicationBuilder, AIORateLimiter, filters, MessageHandler,  CallbackQueryHandler
 from church import songs, groups, redis
 
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO,
                     format='%(name)s - %(levelname)s - %(message)s')
-logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('httpcore').setLevel(logging.WARNING)
 
 
 # Don't show debug messages
-tglogger = logging.getLogger("telegram.bot")
+tglogger = logging.getLogger("telegram.ext.ExtBot")
 tglogger.setLevel(logging.INFO)
 
 
-def message(update, context):
+async def message(update, context):
     bot = context.bot
     user_id = update.message.from_user.id
     login_key = get_user_login_key(user_id)
@@ -56,16 +54,16 @@ def message(update, context):
 
     if login_data_str:
         login_data = json.loads(login_data_str)
-        success, message = login(login_data=login_data)
+        success, message = await login(login_data=login_data)
         if not success:
-            check_login(context, update, text, firstTime=False)
+            await check_login(context, update, text, firstTime=False)
             return
     else:
         # not logged in, check if login data sent and don't continue afterwards
-        check_login(context, update, text)
+        await check_login(context, update, text)
         return
 
-    bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
+    await bot.send_chat_action(chat_id=update.message.chat_id, action=ChatAction.TYPING)
 
     mode = redis.get(mode_key(update))
     if mode:
@@ -73,33 +71,33 @@ def message(update, context):
         # print(f"In mode {mode}")
         redis.delete(mode_key(update))
         if mode == 'calendar':
-            calendar(context, update, login_data, mode_key(update), text)
+            await calendar(context, update, login_data, mode_key(update), text)
         elif mode == 'rooms':
             if text in RAUM_ZEIT_MARKUP:
                 if text in RAUM_ZEIT_MARKUP_SIMPLE:
                     if text == 'Heute':
-                        msgs = parseRaeumeByTime(login_data, None, dayRange=0)
+                        msgs = await parseRaeumeByTime(login_data, None, dayRange=0)
                     elif text == 'Morgen':
-                        msgs = parseRaeumeByTime(login_data, None, dayRange=0, dayOffset=1)
+                        msgs = await parseRaeumeByTime(login_data, None, dayRange=0, dayOffset=1)
                     for msg in msgs:
-                        send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                        await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
                 elif text in RAUM_ZEIT_MARKUP_EXTENDED:
                     cur_time_markup = [[f'{text}: {r}'] for r in room_markup]
-                    send_message(context, update, "Welche Räume?", telegram.ParseMode.HTML,
+                    await send_message(context, update, "Welche Räume?", ParseMode.HTML,
                                  ReplyKeyboardMarkup(cur_time_markup))
             elif text in RAUM_EXTENDED_MARKUP:
                 redis.set(mode_key(update), 'room_search')
-                send_message(context, update, "Gib den Namen der Raumbelegung (oder einen Teil ein):", None,
+                await send_message(context, update, "Gib den Namen der Raumbelegung (oder einen Teil ein):", None,
                              EMPTY_MARKUP)
         elif mode == 'song':
             (success, res) = songs.search(login_data, text)
             if success:
                 for msg in res:
-                    send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                    await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
             else:
-                send_message(context, update, res, None, mainMarkup())
+                await send_message(context, update, res, None, mainMarkup())
         elif mode == 'person':
-            success = person(context, update, text, mainMarkup(), login_data, include_pi=include_pi)
+            success = await person(context, update, text, mainMarkup(), login_data, include_pi=include_pi)
             if success is False:
                 redis.set(mode_key(update), mode)
         elif mode == 'group':
@@ -107,17 +105,17 @@ def message(update, context):
         elif mode == 'room_search':
             msgs = parseRaeumeByText(login_data, text)
             for msg in msgs:
-                send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
         elif mode == 'calendar_search':
             try:
                 msgs = parseCalendarByText(login_data, text)
                 for msg in msgs:
-                    send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                    await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
             except Exception as e:
                 eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                 msg = f"Failed!\nException: {eMsg}"
                 logger.error(msg)
-                send_message(context, update, msg, None, mainMarkup())
+                await send_message(context, update, msg, None, mainMarkup())
         elif mode == 'signup':
             parse_signup(context, update, login_data, mainMarkup(), text)
 
@@ -140,56 +138,56 @@ def message(update, context):
         if m1 and zeit in RAUM_ZEIT_MARKUP and room in room_markup:
             try:
                 if zeit == 'Nächste 7 Tage':
-                    msgs = parseRaeumeByTime(login_data, room, dayRange=7)
+                    msgs = await parseRaeumeByTime(login_data, room, dayRange=7)
                 elif text == 'Heute':
-                    msgs = parseRaeumeByTime(login_data, None, dayRange=0)
+                    msgs = await parseRaeumeByTime(login_data, None, dayRange=0)
                 elif text == 'Morgen':
-                    msgs = parseRaeumeByTime(login_data, None, dayRange=0, dayOffset=1)
+                    msgs = await parseRaeumeByTime(login_data, None, dayRange=0, dayOffset=1)
                 for msg in msgs:
-                    send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                    await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
             except Exception as e:
                 eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                 msg = f"Failed!\nException: {eMsg}"
                 logger.error(msg)
-                send_message(context, update, msg, None, mainMarkup())
+                await send_message(context, update, msg, None, mainMarkup())
         elif m2:
             song_id = m2.group(1)
             file_id = m2.group(2)
-            song(context, update, file_id, login_data, mainMarkup(), song_id)
+            await song(context, update, file_id, login_data, mainMarkup(), song_id)
         elif mPerson:
-            person(context, update, text, mainMarkup(), login_data, include_pi=include_pi)
+            await person(context, update, text, mainMarkup(), login_data, include_pi=include_pi)
         elif mPersonContact:
-            person(context, update, text, mainMarkup(), login_data, include_pi=include_pi, contact=True)
+            await person(context, update, text, mainMarkup(), login_data, include_pi=include_pi, contact=True)
         elif mPersonGroup:
             try:
-                (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+                (error, data) = await getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
                 if not data:
                     msg = '<i>Konnte Daten nicht abrufen!</i>'
                 else:
                     p_id = mPersonGroup.group(1)
                     p = data[p_id] if p_id in data else None
                     if p:
-                        msg = printPersonGroups(login_data, p)
+                        msg = await printPersonGroups(login_data, p)
                     else:
                         msg = '<i>Person nicht gefunden.</i>'
-                send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
             except Exception as e:
                 eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                 msg = f"Failed!\nException: {eMsg}"
                 logger.error(msg)
-                send_message(context, update, msg, None, mainMarkup())
+                await send_message(context, update, msg, None, mainMarkup())
         elif mGroup:
             group(context, update, text, mainMarkup(), login_data=login_data)
         elif mGroupMember:
-            (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
-            (errorMaster, masterData) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
+            (error, data) = await getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+            (errorMaster, masterData) = await getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
             if not data or not masterData:
                 parts = ['<i>Konnte Daten nicht abrufen!</i>']
             else:
                 g_id = mGroupMember.group(1)
                 parts = print_group_members(login_data, masterData=masterData, persons=data, g_id=g_id)
             for part in parts:
-                send_message(context, update, part, telegram.ParseMode.HTML, mainMarkup())
+                await send_message(context, update, part, ParseMode.HTML, mainMarkup())
         elif mEvent:
             g_id = mEvent.group(1)
             print_event(context, update, g_id, login_data, mainMarkup())
@@ -200,17 +198,17 @@ def message(update, context):
                 try:
                     bot.send_photo(update.effective_chat.id, photo=qr,
                                       caption="QR-Code fürs Check-In",
-                                      parse_mode=telegram.ParseMode.HTML, reply_markup=mainMarkup(),
+                                      parse_mode=ParseMode.HTML, reply_markup=mainMarkup(),
                                       timeout=30)
                 except Exception as e:
-                    send_message(context, update,
+                    await send_message(context, update,
                                  "<i>Konnte QR-Code nicht senden :(</i>\n" + str(e),
-                                 telegram.ParseMode.HTML,
+                                 ParseMode.HTML,
                                  mainMarkup())
             else:
-                send_message(context, update,
+                await send_message(context, update,
                              "<i>Konnte QR-Code nicht abrufen :(</i>\n",
-                             telegram.ParseMode.HTML,
+                             ParseMode.HTML,
                              mainMarkup())
         elif mSong1 or mSong2:
             try:
@@ -221,71 +219,77 @@ def message(update, context):
                     songid = mSong2.group(1)
                     arrId = mSong2.group(2)
                 (success, msg) = songs.byID(login_data, song_id=songid, arrangement_id=arrId)
-                send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
 
             except Exception as e:
                 eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                 msg = f"Failed!\nException: {eMsg}"
                 logger.error(msg)
-                send_message(context, update, msg, None, mainMarkup())
+                await send_message(context, update, msg, None, mainMarkup())
         elif mAgenda:
             a_id = mAgenda.group(1)
             agenda(context, update, login_data, a_id, mainMarkup())
 
         elif text == MARKUP_ROOMS:
             redis.set(mode_key(update), 'rooms')
-            send_message(context, update, "Welcher Zeitraum?", telegram.ParseMode.HTML,
+            await send_message(context, update, "Welcher Zeitraum?", ParseMode.HTML,
                          ReplyKeyboardMarkup([RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP]))
         elif text == MARKUP_CALENDAR:
             redis.set(mode_key(update), 'calendar')
-            send_message(context, update, "Welcher Zeitraum?", telegram.ParseMode.HTML,
+            await send_message(context, update, "Welcher Zeitraum?", ParseMode.HTML,
                          ReplyKeyboardMarkup([RAUM_ZEIT_MARKUP, RAUM_EXTENDED_MARKUP]))
         elif text == MARKUP_BIRTHDAYS:
             try:
-                msg = parseGeburtstage(login_data=login_data)
-                send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                msg = await parseGeburtstage(login_data=login_data)
+                await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
             except Exception as e:
                 msg = f"Failed!\nException: {e}"
                 logger.error(msg)
-                send_message(context, update, msg, None, mainMarkup())
+                await send_message(context, update, msg, None, mainMarkup())
         elif text == MARKUP_SONGS:
             redis.set(mode_key(update), 'song')
-            send_message(context, update, "Gib den Namen/Author (oder einen Teil davon ein):", None,
+            await send_message(context, update, "Gib den Namen/Author (oder einen Teil davon ein):", None,
                          EMPTY_MARKUP)
         elif text == MARKUP_PEOPLE:
             redis.set(mode_key(update), 'person')
-            send_message(context, update, "Gib den Namen (oder einen Teil ein) oder eine Telefonnumer ein:",
+            await send_message(context, update, "Gib den Namen (oder einen Teil ein) oder eine Telefonnumer ein:",
                          None, EMPTY_MARKUP)
         elif text == MARKUP_GROUPS:
             redis.set(mode_key(update), 'group')
-            send_message(context, update, "Gib den Namen (oder einen Teil ein):", None, EMPTY_MARKUP)
+            await send_message(context, update, "Gib den Namen (oder einen Teil ein):", None, EMPTY_MARKUP)
         elif text == MARKUP_EVENTS:
             list_events(context, login_data, mainMarkup(), update)
         else:
-            send_message(context, update,
+            await send_message(context, update,
                          "Unbekannter Befehl, du kannst einen der Buttons unten nutzen", None, mainMarkup())
 
 
 if __name__ == '__main__':
     logger.info("Telegram bot starting..")
 
-    q = mq.MessageQueue(all_burst_limit=20, all_time_limit_ms=2017)
-    # set connection pool size for bot
-    request = Request(con_pool_size=8)
-    mqbot = MQBot(os.environ.get('BOT_TOKEN'),
-                  request=request,
-                  mqueue=q)
-    mqbot.logger = tglogger
-    updater = telegram.ext.updater.Updater(bot=mqbot)
-    # updater.dispatcher.add_handler(CommandHandler('start', start))
-
-    updater.dispatcher.add_handler(MessageHandler(Filters.text | Filters.command, message))
-    updater.dispatcher.add_handler(MessageHandler(Filters.photo | Filters.document, photo))
-    updater.dispatcher.add_handler(CallbackQueryHandler(button))
+    application = ApplicationBuilder().token(os.environ.get('BOT_TOKEN')).rate_limiter(AIORateLimiter()).build()
+    
+    #start_handler = CommandHandler('start', start)
+    #application.add_handler(start_handler)
+    application.add_handler(MessageHandler(filters.TEXT | filters.COMMAND, message))
+    application.add_handler(MessageHandler(filters.PHOTO | filters.ATTACHMENT, photo))
+    application.add_handler(CallbackQueryHandler(button))
     # updater.dispatcher.add_handler(CallbackQueryHandler(confirm_value))
-
-    # updater.dispatcher.add_handler()
-
+    
     logger.info("Starting updater..")
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
+
+    #q = mq.MessageQueue(all_burst_limit=20, all_time_limit_ms=2017)
+    ## set connection pool size for bot
+    #request = Request(con_pool_size=8)
+    #mqbot = MQBot(os.environ.get('BOT_TOKEN'),
+    #              request=request,
+    #              mqueue=q)
+    #mqbot.logger = tglogger
+    #updater = telegram.ext.updater.Updater(bot=mqbot)
+    ## updater.dispatcher.add_handler(CommandHandler('start', start))
+
+
+    ## updater.dispatcher.add_handler()
+
+    #updater.start_polling()

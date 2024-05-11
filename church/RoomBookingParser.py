@@ -2,7 +2,6 @@ import pickle
 
 from church import redis
 from church.BookingParser import BookingParser
-from church.ChurchToolsRequests import getAjaxResponse
 from church.utils import get_cache_key
 
 
@@ -36,12 +35,12 @@ class RoomBookingParser(BookingParser):
                 b['start'], sortDict[b['room_num']] if b['room_num'] in sortDict.keys() else 999, b['start']))
         return entries
 
-    def getAllBookings(self):
+    async def getAllBookings(self):
         key = get_cache_key(self.login_data, self.cache_key, useDate=True)
         entries = self._loadCache(key)
         if not entries:
             entries = []
-            (error, data) = self._ajaxResponse()
+            (error, data) = await self._ajaxResponse()
             if not data:
                 return error, entries
             for b in data:

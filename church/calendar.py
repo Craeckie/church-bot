@@ -5,6 +5,7 @@ import re
 import traceback
 
 import telegram
+from telegram.constants import ParseMode
 
 from church import redis
 from church.CalendarBookingParser import CalendarBookingParser
@@ -14,20 +15,20 @@ from church.utils import send_message
 
 logger = logging.getLogger(__name__)
 
-def calendar(context, update, login_data, mode_key, text):
+async def calendar(context, update, login_data, mode_key, text):
     try:
         if text in RAUM_ZEIT_MARKUP:
             if text == 'Heute':
-                msgs = parseCalendarByTime(login_data, dayRange=0)
+                msgs = await parseCalendarByTime(login_data, dayRange=0)
             elif text == 'Nächste 7 Tage':
-                msgs = parseCalendarByTime(login_data, dayRange=7)
+                msgs = await parseCalendarByTime(login_data, dayRange=7)
             elif text == 'Morgen':
-                msgs = parseCalendarByTime(login_data, dayRange=0, dayOffset=1)
+                msgs = await parseCalendarByTime(login_data, dayRange=0, dayOffset=1)
             for msg in msgs:
-                send_message(context, update, msg, telegram.ParseMode.HTML, mainMarkup())
+                await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
         elif text == 'Suche':
             redis.set(mode_key, 'calendar_search')
-            send_message(context, update,
+            await send_message(context, update,
                          "Gib den Namen des Kalendereintrags (oder einen Teil davon ein):",
                          None,
                          EMPTY_MARKUP)
@@ -35,7 +36,7 @@ def calendar(context, update, login_data, mode_key, text):
         eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
         msg = f"Failed!\nException: {eMsg}"
         logger.error(msg)
-        send_message(context, update, msg, None, mainMarkup())
+        await send_message(context, update, msg, None, mainMarkup())
 
 def parseCalendarByText(login_data, search):
     parser = CalendarBookingParser(login_data)
@@ -51,10 +52,10 @@ def parseCalendarByText(login_data, search):
         text[-1] = text[-1] + f'\n<i>{error}</i>'
     return text
 
-def parseCalendarByTime(login_data, dayRange=7, dayOffset=0):
+async def parseCalendarByTime(login_data, dayRange=7, dayOffset=0):
     parser = CalendarBookingParser(login_data)
 
-    error, entries = parser.getEntries(dayRange, dayOffset)
+    error, entries = await parser.getEntries(dayRange, dayOffset)
     if entries is None:
         return ["Konnte Daten nicht abrufen!"]
 

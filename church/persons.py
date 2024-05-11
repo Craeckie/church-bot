@@ -10,6 +10,7 @@ import requests
 import telegram
 import vobject
 from telegram import Contact
+from telegram.constants import ParseMode
 
 from church.ChurchToolsRequests import getAjaxResponse, logger, getPersonLink
 from church.utils import send_message, pi_notice
@@ -48,11 +49,11 @@ _all2detail = {
 }
 
 
-def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False, additionalName=''):
+async def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False, additionalName=''):
     groups = p['groupmembers'] if 'groupmembers' in p else None
     if extraData is None and (type(p) is str or not personList and not onlyName):
         p_id = p['p_id'] if 'p_id' in p else p
-        (error, extraData) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
+        (error, extraData) = await getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
                                              id=p_id)
     if extraData:
         p = dict([(k, v) for (k, v) in extraData.items() if v])
@@ -102,7 +103,7 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
         t += '<pre>Verwandschaft</pre>\n'
         for rel in p['rels']:
             rel_id = rel['vater_id'] if rel['vater_id'] != p['id'] else rel['kind_id']
-            (error, rel_person) = getAjaxResponse("db", "getPersonDetails",
+            (error, rel_person) = await getAjaxResponse("db", "getPersonDetails",
                                                   login_data=login_data,
                                                   timeout=24 * 3600,
                                                   id=rel_id)
@@ -156,16 +157,16 @@ def _printPerson(login_data, p, extraData=None, personList=False, onlyName=False
     return t
 
 
-def printPersonGroups(login_data, person):
+async def printPersonGroups(login_data, person):
     from church.groups import printGroup
 
-    t = 'Gruppen von ' + _printPerson(login_data, person, personList=True, onlyName=True) + '\n'
+    t = 'Gruppen von ' + await _printPerson(login_data, person, personList=True, onlyName=True) + '\n'
     groups = person['groupmembers'] if 'groupmembers' in person else None
     if not groups:
         t += '<i>Keine Gruppen gefunden.</i>'
         return t
-    (error, master_data) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
-    (error, block_data) = getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
+    (error, master_data) = await getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
+    (error, block_data) = await getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
     group_signup_infos = None
     try:
         if block_data:
@@ -214,7 +215,7 @@ def _personGroupAdditionalInfo(group_id, person_id, group_signup_infos):
     return answer_kv
 
 
-def _printPersons(login_data, ps, include_pi=False):
+async def _printPersons(login_data, ps, include_pi=False):
     texts = []
     ps = sorted(ps, key=lambda p: p['vorname'])
     ps = sorted(ps, key=lambda p: p['name'])
@@ -225,7 +226,7 @@ def _printPersons(login_data, ps, include_pi=False):
         use_list = True
         use_name = True
     for p in ps:
-        texts.append(_printPerson(login_data, p, personList=use_list, onlyName=use_name))
+        texts.append(await _printPerson(login_data, p, personList=use_list, onlyName=use_name))
     return '\n\n'.join(texts)
 
 
@@ -296,16 +297,16 @@ def _getPhoto(login_data, extraData):
     return None, None
 
 
-def _getPersonInfo(login_data, person, include_pi=False, extraData=None):
+async def _getPersonInfo(login_data, person, include_pi=False, extraData=None):
     if not include_pi:
-        res = {'msg': _printPerson(login_data, p=person, personList=True, onlyName=True)}
+        res = {'msg': await _printPerson(login_data, p=person, personList=True, onlyName=True)}
         res['msg'] += pi_notice()
         return res
     if not extraData:
-        (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+        (error, extraData) = await getAjaxResponse("db", "getPersonDetails",
                                              login_data=login_data, timeout=24 * 3600,
                                              id=person['p_id'])
-    res = {'msg': _printPerson(login_data, person, extraData=extraData)}
+    res = {'msg': await _printPerson(login_data, person, extraData=extraData)}
 
     photo_raw = None
     if extraData:
@@ -321,8 +322,8 @@ def _getPersonInfo(login_data, person, include_pi=False, extraData=None):
     return res
 
 
-def searchPerson(login_data, text, include_pi=False):
-    (error, data) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+async def searchPerson(login_data, text, include_pi=False):
+    (error, data) = await getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
 
     regex_id = '/(P|C|PG)([0-9]+)'
     regex_phone = '\+?[0-9 /()-]+'
@@ -340,7 +341,7 @@ def searchPerson(login_data, text, include_pi=False):
                 continue
             if person['p_id'] == pid:
                 logger.debug("Found it!")
-                res = _getPersonInfo(login_data, person, include_pi=include_pi)
+                res = await _getPersonInfo(login_data, person, include_pi=include_pi)
                 if error:
                     res['msg'] += f'\n<i>{error}</i>'
                 return res
@@ -367,11 +368,11 @@ def searchPerson(login_data, text, include_pi=False):
                     # elif handy:
                     #    logger.info(f"Not {person['vorname']} {person['name']}: {handy}")
                 if len(matches) == 1:
-                    return _getPersonInfo(login_data, matches[0], include_pi=include_pi)
+                    return await _getPersonInfo(login_data, matches[0], include_pi=include_pi)
                 elif len(matches) > 1:
                     return {
                         'success': True,
-                        'msg': _printPersons(login_data, matches, include_pi=include_pi)
+                        'msg': await _printPersons(login_data, matches, include_pi=include_pi)
                     }
                 else:
                     return {
@@ -418,7 +419,7 @@ def searchPerson(login_data, text, include_pi=False):
             p_id = fullMatches[0]['p_id']
             extraData = None
             if include_pi:
-                (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+                (error, extraData) = await getAjaxResponse("db", "getPersonDetails",
                                                     login_data=login_data, timeout=24 * 3600,
                                                     id=p_id)
                 if extraData:
@@ -431,12 +432,12 @@ def searchPerson(login_data, text, include_pi=False):
                 contact = _getContact(fullMatches[0], photo_raw)
                 if contact:
                     res['contact'] = contact
-            res.update(_getPersonInfo(login_data, fullMatches[0], include_pi=include_pi, extraData=extraData))
+            res.update(await _getPersonInfo(login_data, fullMatches[0], include_pi=include_pi, extraData=extraData))
             res['success'] = True
         else:
-            res['msg'] = _printPersons(login_data, fullMatches, include_pi=include_pi)
+            res['msg'] = await _printPersons(login_data, fullMatches, include_pi=include_pi)
     else:
-        (error, data) = getAjaxResponse(f'search?query={text}', login_data=login_data, isAjax=False,
+        (error, data) = await getAjaxResponse(f'search?query={text}', login_data=login_data, isAjax=False,
                                         timeout=24 * 3600)
         matches = []
         if data and 'data' in data:
@@ -451,7 +452,7 @@ def searchPerson(login_data, text, include_pi=False):
             if len(matches) == 1:
                 p_id = matches[0]
                 if include_pi:
-                    (error, data) = getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
+                    (error, data) = await getAjaxResponse("db", "getPersonDetails", login_data=login_data, timeout=24 * 3600,
                                                     id=p_id)
                     if data:
                         photo_url, photo_raw = _getPhoto(login_data=login_data, extraData=data)
@@ -462,9 +463,9 @@ def searchPerson(login_data, text, include_pi=False):
                         contact = _getContact(data, photo_raw)
                         if contact:
                             res['contact'] = contact
-                    res['msg'] = _printPerson(login_data, p_id, personList=False, onlyName=False)
+                    res['msg'] = await _printPerson(login_data, p_id, personList=False, onlyName=False)
                 else:
-                    res['msg'] = _printPerson(login_data, p_id, personList=True, onlyName=True)
+                    res['msg'] = await _printPerson(login_data, p_id, personList=True, onlyName=True)
             else:
                 use_list = True
                 use_name = True
@@ -472,13 +473,13 @@ def searchPerson(login_data, text, include_pi=False):
                     use_list = len(matches) > 1
                     use_name = len(matches) > 5
                 for p_id in matches:
-                    texts.append(_printPerson(login_data, p_id, personList=use_list, onlyName=use_name))
+                    texts.append(await _printPerson(login_data, p_id, personList=use_list, onlyName=use_name))
                 res['msg'] = '\n\n'.join(texts)
 
     # elif partialMatches:
     #    res['success'] = True
     #    if len(partialMatches) == 1:
-    #        (error, extraData) = getAjaxResponse("db", "getPersonDetails",
+    #        (error, extraData) = await getAjaxResponse("db", "getPersonDetails",
     #                                             login_data=login_data, timeout=24 * 3600,
     #                                             id=fullMatches[0]['p_id'])
     #        if extraData:
@@ -491,7 +492,7 @@ def searchPerson(login_data, text, include_pi=False):
     #        contact = _getContact(p=partialMatches[0], photo_raw=photo_raw)
     #        if contact:
     #            res['contact'] = contact
-    #        res.update(_getPersonInfo(login_data, partialMatches[0], extraData=extraData))
+    #        res.update(await _getPersonInfo(login_data, partialMatches[0], extraData=extraData))
     #    else:
     #        res['msg'] = _printPersons(login_data, partialMatches)
     if error:
@@ -499,9 +500,9 @@ def searchPerson(login_data, text, include_pi=False):
     return res
 
 
-def person(context, update, text, reply_markup, login_data, include_pi=False, contact=False):
+async def person(context, update, text, reply_markup, login_data, include_pi=False, contact=False):
     try:
-        res = searchPerson(login_data, text, include_pi=include_pi)
+        res = await searchPerson(login_data, text, include_pi=include_pi)
         logger.debug(res)
         if contact and 'contact' in res:
             context.bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)
@@ -510,13 +511,13 @@ def person(context, update, text, reply_markup, login_data, include_pi=False, co
                 try:
                     context.bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']),
                                            caption=res['msg'],
-                                           parse_mode=telegram.ParseMode.HTML, reply_markup=reply_markup, timeout=30)
+                                           parse_mode=ParseMode.HTML, reply_markup=reply_markup, timeout=30)
                 except Exception as e:
                     res[
                         'msg'] += f'\n<i>Couldn\'t send photo :(\nYou can open it </i><a href="{res["photo_url"]}">here</a>.'
-                    send_message(context, update, res['msg'], telegram.ParseMode.HTML, reply_markup)
+                    send_message(context, update, res['msg'], ParseMode.HTML, reply_markup)
             else:
-                send_message(context, update, res['msg'], telegram.ParseMode.HTML, reply_markup)
+                send_message(context, update, res['msg'], ParseMode.HTML, reply_markup)
     except Exception as e:
         eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
         msg = f"Ein Fehler ist aufgetreten :(\nException: {eMsg}"

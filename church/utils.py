@@ -23,9 +23,9 @@ def loadCache(key):
     return pickle.loads(entr_str) if entr_str else None
 
 
-def send_message(context, update, text, parse_mode, reply_markup):
+async def send_message(context, update, text, parse_mode, reply_markup):
     try:
-        context.bot.send_message(update.message.chat_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup,
+        await context.bot.send_message(update.message.chat_id, text=text, parse_mode=parse_mode, reply_markup=reply_markup,
                          disable_web_page_preview=True)
     except Exception as e:
         logger.error(f"Sending Message as {parse_mode} failed!\n{text}")

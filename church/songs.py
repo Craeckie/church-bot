@@ -3,6 +3,7 @@ import traceback
 from urllib.parse import urljoin
 
 import telegram
+from telegram.constants import ParseMode
 
 from .ChurchToolsRequests import getAjaxResponse, download_file
 from .utils import send_message
@@ -130,18 +131,18 @@ def download(login_data, song_id, file_id):
                         }
 
 
-def song(context, update, file_id, login_data, reply_markup, song_id):
+async def song(context, update, file_id, login_data, reply_markup, song_id):
     try:
         res = download(login_data, song_id, file_id)
         if res and 'msg' in res:
             msg = res['msg']
             if 'file' in res:
-                (success, res) = download_file(login_data, res['file'])
+                (success, res) = await download_file(login_data, res['file'])
                 if success:
                     if res['type'] == 'file':
                         context.bot.send_document(chat_id=update.message.chat_id, document=res['file'],
                                           filename=msg,
-                                          parse_mode=telegram.ParseMode.HTML)
+                                          parse_mode=ParseMode.HTML)
                     elif res['type'] == 'msg':
                         for msg in res['msg']:
                             send_message(context, update, msg, None, reply_markup)
