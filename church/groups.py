@@ -28,7 +28,7 @@ def _printEntry(dict, key, description='', italic=False, bold=False):
     return t
 
 
-def printGroup(login_data, group, persons=None, masterData=None, list=False, onlyName=False):
+async def printGroup(login_data, group, persons=None, masterData=None, list=False, onlyName=False):
     g_id = group['id']
     url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
     parts = []
@@ -63,7 +63,7 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
                             if 'groupmembers' in persons[p_id]
                             if g_id in persons[p_id]['groupmembers']]
         if len(persons_in_group) <= 20:
-            parts += print_group_members(login_data, masterData, persons, g_id)
+            parts += await print_group_members(login_data, masterData, persons, g_id)
         else:
             parts.append(f'<b>Teilnehmer</b>: <b>/GP{g_id}</b>\n')
 
@@ -90,7 +90,7 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
             cur_part += _printEvent(data)
             if 'canSignUp' in data and data['canSignUp']:
                 p_id = int(login_data['personid'])
-                (error, data) = getAjaxResponse(f'groups/{g_id}/qrcodecheckin/{p_id}', login_data=login_data,
+                (error, data) = await getAjaxResponse(f'groups/{g_id}/qrcodecheckin/{p_id}', login_data=login_data,
                                                 isAjax=False, timeout=None)
                 if data and 'data' in data and data['data']:
                     cur_part += f'\n<b>Bereits angemeldet.\nQR-Code abrufen: /Q{g_id}</b>'
@@ -103,9 +103,9 @@ def printGroup(login_data, group, persons=None, masterData=None, list=False, onl
     return parts
 
 
-def print_group_members(login_data, masterData, persons, g_id):
+async def print_group_members(login_data, masterData, persons, g_id):
     max_people = 100
-    (error, block_data) = getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
+    (error, block_data) = await getAjaxResponse('home', 'getBlockData', login_data=login_data, timeout=None)
     group_signup_infos = None
     try:
         if block_data:
@@ -148,7 +148,7 @@ def print_group_members(login_data, masterData, persons, g_id):
             last_letter = ''
             num_cur_part = 0
             for person, registered_by in people:
-                person_text = _printPerson(login_data, person, personList=True, onlyName=True,
+                person_text = await _printPerson(login_data, person, personList=True, onlyName=True,
                                            additionalName=f'von {registered_by}' if registered_by else None)
                 answer_kv = _personGroupAdditionalInfo(g_id, person['p_id'], group_signup_infos)
                 for key, value in answer_kv.items():
@@ -197,12 +197,12 @@ def _getGroupType(types, id):
     return types[id]['bezeichnung']
 
 
-def findGroup(login_data, name):
+async def findGroup(login_data, name):
     key = get_cache_key(login_data, 'group:find', name)
     res = loadCache(key)
     error = None
     if not res or True:
-        (error, data) = getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
+        (error, data) = await getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
         if not data:  # or 'groups':
             return {
                 'success': False,
@@ -229,7 +229,7 @@ def findGroup(login_data, name):
         if len(matches) == 0:
             pass
         elif len(matches) < 10:
-            (error, persons) = getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
+            (error, persons) = await getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
 
             if not persons:
                 return {
@@ -243,12 +243,12 @@ def findGroup(login_data, name):
                 url = urljoin(login_data['url'], f'?q=churchdb#GroupView/searchEntry:#{g_id}')
                 if len(matches) == 1:
                     # t.append(f'<a href="{url}">{g["bezeichnung"]}</a>\n')
-                    t += printGroup(login_data=login_data, group=g, persons=persons, masterData=data, list=False,
+                    t += await printGroup(login_data=login_data, group=g, persons=persons, masterData=data, list=False,
                                     onlyName=False)
                     img_id = g['groupimage_id']
                     if img_id:
                         try:
-                            img_data = getAjaxResponse(f'files/{img_id}/metadata', login_data=login_data, isAjax=False,
+                            img_data = await getAjaxResponse(f'files/{img_id}/metadata', login_data=login_data, isAjax=False,
                                                        timeout=24 * 3600)
                             res['photo'] = urljoin(login_data['url'], img_data[1]['url'])
                         except:
@@ -317,9 +317,9 @@ def get_field_info(field, cancel_markup):
     return msg, markup
 
 
-def get_qrcode(login_data, group_id):
+async def get_qrcode(login_data, group_id):
     p_id = int(login_data['personid'])
-    (error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin', login_data=login_data, isAjax=False,
+    (error, data) = await getAjaxResponse(f'groups/{group_id}/qrcodecheckin', login_data=login_data, isAjax=False,
                                     timeout=None)
     if data and 'data' in data and data['data'] and 'token' in data['data'][0] and data['data'][0]['token']:
         token = data['data'][0]['token']
@@ -333,7 +333,7 @@ def get_qrcode(login_data, group_id):
         return b
     else:
         return None
-    # (error, data) = getAjaxResponse(f'groups/{group_id}/qrcodecheckin/{p_id}/pdf', login_data=login_data, isAjax=False,
+    # (error, data) = await getAjaxResponse(f'groups/{group_id}/qrcodecheckin/{p_id}/pdf', login_data=login_data, isAjax=False,
     #                                timeout=None)
     # url = None
     # if data and 'data' in data and data['data'] and 'url' in data['data'] and data['data']['url']:
@@ -341,14 +341,14 @@ def get_qrcode(login_data, group_id):
     # return url
 
 
-def group(context, update, text, reply_markup, login_data):
+async def group(context, update, text, reply_markup, login_data):
     res = None
     try:
-        res = findGroup(login_data, text)
+        res = await findGroup(login_data, text)
     except Exception as e:
         msg = f"Failed!\nException: {e}"
         logger.error(msg)
-        send_message(context, update, msg, ParseMode.HTML, reply_markup)
+        await send_message(context, update, msg, ParseMode.HTML, reply_markup)
         return
 
     # Combine lines to messages
@@ -367,11 +367,11 @@ def group(context, update, text, reply_markup, login_data):
     try:
         msg = messages[0]
         if has_photo:
-            context.bot.send_photo(update.message.chat_id, photo=res['photo'], caption=msg,
+            await context.bot.send_photo(update.message.chat_id, photo=res['photo'], caption=msg,
                                    parse_mode=ParseMode.HTML, reply_markup=reply_markup)
             messages.pop(0)
     except Exception as e:
         msg = f"Failed!\nException: {e}"
         logger.error(msg)
     for msg in messages:
-        send_message(context, update, msg, ParseMode.HTML, reply_markup)
+        await send_message(context, update, msg, ParseMode.HTML, reply_markup)

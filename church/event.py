@@ -48,39 +48,39 @@ async def parse_signup(context, update, login_data, reply_markup, text):
             (error, data) = await getAjaxResponse(f'publicgroups/{g_id}/signup', login_data=login_data, isAjax=False,
                                             timeout=None, **params)
             if not data:
-                send_message(context, update,
+                await send_message(context, update,
                              "<b>Anmeldung fehlgeschlagen! Fehler:\n</b>" + error,
                              ParseMode.HTML, reply_markup)
             elif data and 'translatedMessage' in data and data['translatedMessage']:
-                send_message(context, update, "<b>Anmeldung fehlgeschlagen! Fehler:\n</b>" + data['translatedMessage'],
+                await send_message(context, update, "<b>Anmeldung fehlgeschlagen! Fehler:\n</b>" + data['translatedMessage'],
                              ParseMode.HTML, reply_markup)
             else:
-                send_message(context, update, "<b>Erfolgreich angemeldet!</b>",
+                await send_message(context, update, "<b>Erfolgreich angemeldet!</b>",
                              ParseMode.HTML, reply_markup)
                 #url = groups.get_qrcode(login_data, g_id)
-                qr = groups.get_qrcode(login_data, g_id)
+                qr = await groups.get_qrcode(login_data, g_id)
                 if qr:
                     try:
-                        context.bot.send_photo(update.effective_chat.id, photo=qr,
+                        await context.bot.send_photo(update.effective_chat.id, photo=qr,
                                           caption="Hier ist dein QR-Code fürs Check-In",
                                           parse_mode=ParseMode.HTML, reply_markup=reply_markup,
                                           timeout=30)
-                        # context.bot.send_document(update.effective_chat.id, document=url,
+                        # await context.bot.send_document(update.effective_chat.id, document=url,
                         #                   caption="Hier ist dein QR-Code fürs Check-In",
                         #                   parse_mode=ParseMode.HTML, reply_markup=reply_markup,
                         #                   timeout=30)
                     except Exception as e:
-                        send_message(context, update,
+                        await send_message(context, update,
                                      "<i>Konnte QR-Code nicht senden :(</i>\n" + str(e),
                                      ParseMode.HTML,
                                      reply_markup)
                 else:
-                    send_message(context, update,
+                    await send_message(context, update,
                                  "<i>Konnte QR-Code nicht abrufen :(</i>\n" + error,
                                  ParseMode.HTML,
                                  reply_markup)
         else:
-            send_message(context, update, "<b>Anmeldung abgebrochen</b>", ParseMode.HTML,
+            await send_message(context, update, "<b>Anmeldung abgebrochen</b>", ParseMode.HTML,
                          reply_markup)
     else:
         field = groups.next_signup_field(signup_info)
@@ -103,7 +103,7 @@ async def parse_signup(context, update, login_data, reply_markup, text):
             markup = ReplyKeyboardMarkup([[MARKUP_SIGNUP_YES, MARKUP_SIGNUP_NO]])
         redis.set(signup_key, pickle.dumps(signup_info))
         redis.set(mode_key(update), 'signup')
-        send_message(context, update, msg, ParseMode.HTML, markup)
+        await send_message(context, update, msg, ParseMode.HTML, markup)
 
 
 async def list_events(context, login_data, reply_markup, update):
@@ -133,35 +133,35 @@ async def list_events(context, login_data, reply_markup, update):
                 msg += "<i>Keine Veranstaltungen gefunden</i>\n"
             else:
                 for cur_group in cur_groups:
-                    msg += ''.join(groups.printGroup(login_data=login_data, group=cur_group, persons=persons,
+                    msg += ''.join(await groups.printGroup(login_data=login_data, group=cur_group, persons=persons,
                                              masterData=masterData, list=True,
                                              onlyName=True)) + '\n'
             msg += '\n<pre>Angemeldete</pre>\n'
             numActive = 0
             for eventID in reversed(activeEventIDs):
                 cur_group = grouplist[eventID]
-                msg += ''.join(groups.printGroup(login_data=login_data, group=cur_group, persons=persons, masterData=masterData,
+                msg += ''.join(await groups.printGroup(login_data=login_data, group=cur_group, persons=persons, masterData=masterData,
                                          list=True, onlyName=True)) + '\n'
                 numActive += 1
             if numActive == 0:
                 msg += "<i>Keine Veranstaltungen gefunden</i>\n"
-            send_message(context, update, msg, ParseMode.HTML, reply_markup)
+            await send_message(context, update, msg, ParseMode.HTML, reply_markup)
         except Exception as e:
             msg = f"Failed!\nException: {e}"
             logger.error(msg)
-            send_message(context, update, msg, None, reply_markup)
+            await send_message(context, update, msg, None, reply_markup)
     else:
         if errorMaster:
-            send_message(context, update, "Konnte Master-Daten nicht abrufen:\n" + errorMaster,
+            await send_message(context, update, "Konnte Master-Daten nicht abrufen:\n" + errorMaster,
                          None, reply_markup)
         elif errorBlock:
-            send_message(context, update, "Konnte Block-Daten nicht abrufen:\n" + errorBlock,
+            await send_message(context, update, "Konnte Block-Daten nicht abrufen:\n" + errorBlock,
                          None, reply_markup)
         elif errorPerson:
-            send_message(context, update, "Konnte Personen-Daten nicht abrufen:\n" + errorPerson,
+            await send_message(context, update, "Konnte Personen-Daten nicht abrufen:\n" + errorPerson,
                          None, reply_markup)
         else:
-            send_message(context, update, "Konnte Daten nicht abrufen", None, reply_markup)
+            await send_message(context, update, "Konnte Daten nicht abrufen", None, reply_markup)
 
 
 async def agenda(context, update, login_data, a_id, reply_markup):
@@ -215,7 +215,7 @@ async def agenda(context, update, login_data, a_id, reply_markup):
                 eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
                 msg = f"Failed!\nException: {eMsg}"
                 logger.error(msg)
-                send_message(context, update, msg, None, reply_markup)
+                await send_message(context, update, msg, None, reply_markup)
 
             msg += f'<b>{data["name"]}</b>\n'
             isBeforeEvent = False
@@ -251,12 +251,12 @@ async def agenda(context, update, login_data, a_id, reply_markup):
                     msg += part + "\n"
         else:  # no data
             msg = '<i>Für diese Veranstaltung gibt es keinen Ablaufplan</i>'
-        send_message(context, update, msg, ParseMode.HTML, reply_markup)
+        await send_message(context, update, msg, ParseMode.HTML, reply_markup)
     except Exception as e:
         eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
         msg = f"Failed!\nException: {eMsg}"
         logger.error(msg)
-        send_message(context, update, msg, None, reply_markup)
+        await send_message(context, update, msg, None, reply_markup)
 
 
 async def print_event(context, update, g_id, login_data, reply_markup):
@@ -310,19 +310,19 @@ async def print_event(context, update, g_id, login_data, reply_markup):
                     markup = ReplyKeyboardMarkup(field_markup)
                 redis.set(signup_key, pickle.dumps(signup_info))
                 redis.set(mode_key(update), 'signup')
-                send_message(context, update, msg, ParseMode.HTML, markup)
+                await send_message(context, update, msg, ParseMode.HTML, markup)
             except Exception as e:
                 msg += "<i>Leider ist folgender Fehler aufgetreten:\n" + str(e)
-                send_message(context, update, msg, ParseMode.HTML, reply_markup)
+                await send_message(context, update, msg, ParseMode.HTML, reply_markup)
         else:
             msg = "<i>Konnte Anmelde-Informationen nicht abrufen"
             if error:
                 msg += ":\n" + error
             msg += "</i>"
-            send_message(context, update, msg, ParseMode.HTML, reply_markup)
+            await send_message(context, update, msg, ParseMode.HTML, reply_markup)
     else:
         msg = "<i>Konnte Anmelde-Token nicht abrufen"
         if error:
             msg += ":\n" + error
         msg += "</i>"
-        send_message(context, update, msg, ParseMode.HTML, reply_markup)
+        await send_message(context, update, msg, ParseMode.HTML, reply_markup)

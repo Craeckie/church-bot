@@ -90,7 +90,7 @@ async def message(update, context):
                 await send_message(context, update, "Gib den Namen der Raumbelegung (oder einen Teil ein):", None,
                              EMPTY_MARKUP)
         elif mode == 'song':
-            (success, res) = songs.search(login_data, text)
+            (success, res) = await songs.search(login_data, text)
             if success:
                 for msg in res:
                     await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
@@ -101,7 +101,7 @@ async def message(update, context):
             if success is False:
                 redis.set(mode_key(update), mode)
         elif mode == 'group':
-            group(context, update, text, mainMarkup(), login_data=login_data)
+            await group(context, update, text, mainMarkup(), login_data=login_data)
         elif mode == 'room_search':
             msgs = parseRaeumeByText(login_data, text)
             for msg in msgs:
@@ -177,7 +177,7 @@ async def message(update, context):
                 logger.error(msg)
                 await send_message(context, update, msg, None, mainMarkup())
         elif mGroup:
-            group(context, update, text, mainMarkup(), login_data=login_data)
+            await group(context, update, text, mainMarkup(), login_data=login_data)
         elif mGroupMember:
             (error, data) = await getAjaxResponse("db", "getAllPersonData", login_data=login_data, timeout=24 * 3600)
             (errorMaster, masterData) = await getAjaxResponse("db", "getMasterData", login_data=login_data, timeout=None)
@@ -185,7 +185,7 @@ async def message(update, context):
                 parts = ['<i>Konnte Daten nicht abrufen!</i>']
             else:
                 g_id = mGroupMember.group(1)
-                parts = print_group_members(login_data, masterData=masterData, persons=data, g_id=g_id)
+                parts = await print_group_members(login_data, masterData=masterData, persons=data, g_id=g_id)
             for part in parts:
                 await send_message(context, update, part, ParseMode.HTML, mainMarkup())
         elif mEvent:
@@ -193,7 +193,7 @@ async def message(update, context):
             print_event(context, update, g_id, login_data, mainMarkup())
         elif mQR:
             g_id = mQR.group(1)
-            qr = groups.get_qrcode(login_data, g_id)
+            qr = await groups.get_qrcode(login_data, g_id)
             if qr:
                 try:
                     bot.send_photo(update.effective_chat.id, photo=qr,
@@ -218,7 +218,7 @@ async def message(update, context):
                 else:
                     songid = mSong2.group(1)
                     arrId = mSong2.group(2)
-                (success, msg) = songs.byID(login_data, song_id=songid, arrangement_id=arrId)
+                (success, msg) = await songs.byID(login_data, song_id=songid, arrangement_id=arrId)
                 await send_message(context, update, msg, ParseMode.HTML, mainMarkup())
 
             except Exception as e:
@@ -228,7 +228,7 @@ async def message(update, context):
                 await send_message(context, update, msg, None, mainMarkup())
         elif mAgenda:
             a_id = mAgenda.group(1)
-            agenda(context, update, login_data, a_id, mainMarkup())
+            await agenda(context, update, login_data, a_id, mainMarkup())
 
         elif text == MARKUP_ROOMS:
             redis.set(mode_key(update), 'rooms')

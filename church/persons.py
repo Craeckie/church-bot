@@ -186,7 +186,7 @@ async def printPersonGroups(login_data, person):
             group_type = master_data['groupTypes'][group_type_id]['bezeichnung']
             t += f'\n<pre>{group_type}</pre>\n'
             for group in groups:
-                parts = printGroup(login_data, group, list=True, onlyName=True)
+                parts = await printGroup(login_data, group, list=True, onlyName=True)
                 t += f'- {parts[0]}\n'
                 answer_kv = _personGroupAdditionalInfo(group['id'], person['p_id'], group_signup_infos)
                 for key, value in answer_kv.items():
@@ -505,21 +505,21 @@ async def person(context, update, text, reply_markup, login_data, include_pi=Fal
         res = await searchPerson(login_data, text, include_pi=include_pi)
         logger.debug(res)
         if contact and 'contact' in res:
-            context.bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)
+            await context.bot.send_contact(update.effective_chat.id, **res['contact'], reply_markup=reply_markup)
         else:
             if 'photo_raw' in res:
                 try:
-                    context.bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']),
+                    await context.bot.send_photo(update.effective_chat.id, photo=BytesIO(res['photo_raw']),
                                            caption=res['msg'],
                                            parse_mode=ParseMode.HTML, reply_markup=reply_markup, timeout=30)
                 except Exception as e:
                     res[
                         'msg'] += f'\n<i>Couldn\'t send photo :(\nYou can open it </i><a href="{res["photo_url"]}">here</a>.'
-                    send_message(context, update, res['msg'], ParseMode.HTML, reply_markup)
+                    await send_message(context, update, res['msg'], ParseMode.HTML, reply_markup)
             else:
-                send_message(context, update, res['msg'], ParseMode.HTML, reply_markup)
+                await send_message(context, update, res['msg'], ParseMode.HTML, reply_markup)
     except Exception as e:
         eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
         msg = f"Ein Fehler ist aufgetreten :(\nException: {eMsg}"
         logger.error(msg)
-        send_message(context, update, msg, None, reply_markup)
+        await send_message(context, update, msg, None, reply_markup)

@@ -31,8 +31,8 @@ def _print_arrangements(song_id, j, arrangement_id=None):
                 # print(f"{kf}: {files[kf]}")
     return ret
 
-def byID(login_data, song_id, arrangement_id=None):
-    (error, data) = getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
+async def byID(login_data, song_id, arrangement_id=None):
+    (error, data) = await getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if not data or 'songs' not in data:
         return False, error
     else:
@@ -45,8 +45,8 @@ def byID(login_data, song_id, arrangement_id=None):
                 return True, _print_song(song, login_data, arrangement_id=arrangement_id)
     return False, 'Dieses Lied wurde nicht gefunden.'
 
-def search(login_data, name):
-    (error, data) = getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
+async def search(login_data, name):
+    (error, data) = await getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if not data or 'songs' not in data:
         return False, error
     else:
@@ -105,8 +105,8 @@ def _print_song(song, login_data, short=False, arrangement_id=None):
     return text
 
 
-def download(login_data, song_id, file_id):
-    (error, data) = getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
+async def download(login_data, song_id, file_id):
+    (error, data) = await getAjaxResponse('service', 'getAllSongs', login_data=login_data, timeout=24 * 3600)
     if error or not data or 'songs' not in data:
         return {'msg': error}
     else:
@@ -133,27 +133,27 @@ def download(login_data, song_id, file_id):
 
 async def song(context, update, file_id, login_data, reply_markup, song_id):
     try:
-        res = download(login_data, song_id, file_id)
+        res = await download(login_data, song_id, file_id)
         if res and 'msg' in res:
             msg = res['msg']
             if 'file' in res:
                 (success, res) = await download_file(login_data, res['file'])
                 if success:
                     if res['type'] == 'file':
-                        context.bot.send_document(chat_id=update.message.chat_id, document=res['file'],
+                        await context.bot.send_document(chat_id=update.message.chat_id, document=res['file'],
                                           filename=msg,
                                           parse_mode=ParseMode.HTML)
                     elif res['type'] == 'msg':
                         for msg in res['msg']:
-                            send_message(context, update, msg, None, reply_markup)
+                            await send_message(context, update, msg, None, reply_markup)
                     else:  # file
-                        send_message(context, update, res['file'], None, reply_markup)
+                        await send_message(context, update, res['file'], None, reply_markup)
                 else:
-                    send_message(context, update, res, None, reply_markup)
+                    await send_message(context, update, res, None, reply_markup)
             else:
-                send_message(context, update, msg, None, reply_markup)
+                await send_message(context, update, msg, None, reply_markup)
     except Exception as e:
         eMsg = ''.join(traceback.format_exception(type(e), e, e.__traceback__))
         msg = f"Failed!\nException: {eMsg}"
         logger.error(msg)
-        send_message(context, update, msg, None, reply_markup)
+        await send_message(context, update, msg, None, reply_markup)
