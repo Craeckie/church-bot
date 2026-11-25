@@ -1,4 +1,4 @@
-FROM python:3-slim
+FROM python:3.12-slim
 
 RUN apt update && apt upgrade -y && apt install -y --no-install-recommends locales libzbar0 zlib1g-dev libjpeg-dev && \
     echo 'de_DE.UTF-8 UTF-8' >> /etc/locale.gen && \
